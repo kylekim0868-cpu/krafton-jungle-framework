@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mini React · Phase 1</title>
+    <style>
+      /* 두 영역을 비교하기 쉽도록 공통 색상·서체와 카드 경계를 정의한다. */
+      :root { color-scheme: light; font-family: system-ui, sans-serif; color: #172533; background: #f4f6f9; }
+      * { box-sizing: border-box; }
+      body { margin: 0; }
+      main { max-width: 1180px; margin: auto; padding: 56px 28px; }
+      .eyebrow { color: #4263ca; font-size: 12px; font-weight: 750; letter-spacing: .14em; }
+      h1 { margin: 12px 0; font-size: clamp(28px, 4vw, 42px); letter-spacing: -.04em; }
+      .intro { color: #596779; line-height: 1.7; margin-bottom: 30px; }
+      .toolbar { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; margin-bottom: 24px; }
+      button { font: inherit; border: 1px solid #c6cdd9; border-radius: 8px; padding: 10px 18px; background: white; }
+      button:disabled { color: #6b7585; background: #e9edf3; cursor: not-allowed; }
+      .hint { color: #657185; font-size: 13px; line-height: 1.6; }
+      .panels { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; }
+      .panel { min-width: 0; border: 1px solid #d7deea; border-radius: 14px; background: white; overflow: hidden; }
+      .panel-header { padding: 20px 24px; border-bottom: 1px solid #e5eaf2; }
+      .panel-header h2 { font-size: 18px; margin: 0 0 7px; }
+      .panel-header p { font-size: 13px; color: #647185; margin: 0; line-height: 1.6; }
+      .area { min-height: 340px; padding: 28px 24px; overflow-wrap: anywhere; }
+      /* 키보드로 편집 영역에 진입했을 때도 현재 초점 위치를 볼 수 있게 한다. */
+      [contenteditable="true"]:focus { outline: 3px solid #7896ee; outline-offset: -3px; }
+      .sample-card h3 { margin: 0 0 14px; font-size: 24px; letter-spacing: -.03em; }
+      .sample-card p, .sample-card li { color: #536174; line-height: 1.8; }
+      .sample-card ul { padding-left: 22px; margin: 18px 0; }
+      .sample-card strong { color: #354f9c; }
+      .sample-tag { display: inline-block; padding: 5px 10px; background: #eaf0ff; color: #3657b0; border-radius: 6px; font-size: 12px; }
+      .status { margin-top: 20px; color: #49617a; font-size: 14px; line-height: 1.7; }
+      /* 좁은 화면에서는 두 영역을 위아래로 배치해 콘텐츠가 지나치게 줄어들지 않게 한다. */
+      @media (max-width: 720px) {
+        main { padding: 32px 16px; }
+        .panels { grid-template-columns: 1fr; }
+        .area { min-height: 280px; }
+      }
+    </style>
+    <script type="module" src="./main.js"></script>
+  </head>
+  <body>
+    <main>
+      <p class="eyebrow">MINI REACT / PHASE 01</p>
+      <h1>Virtual DOM 실험실</h1>
+      <p class="intro">실제 영역의 DOM을 Virtual DOM으로 읽고, 같은 트리로 테스트 영역을 만듭니다.<br>오른쪽 내용을 클릭해서 직접 편집해 보세요.</p>
+
+      <!-- P1-00은 초기화 단계다. 버튼은 표시하지만 Patch·이력 구현 전에는 실행되지 않는다. -->
+      <div class="toolbar" role="group" aria-label="화면 갱신과 이력 이동">
+        <button id="patch-button" type="button" disabled aria-describedby="controls-note">Patch</button>
+        <button id="back-button" type="button" disabled aria-describedby="controls-note">뒤로가기</button>
+        <button id="forward-button" type="button" disabled aria-describedby="controls-note">앞으로가기</button>
+        <span class="hint" id="controls-note">Patch와 이력 이동은 다음 작업에서 연결됩니다.</span>
+      </div>
+
+      <div class="panels">
+        <section class="panel" aria-labelledby="actual-heading">
+          <header class="panel-header">
+            <h2 id="actual-heading">실제 영역</h2>
+            <p>페이지에 작성된 원본 샘플 DOM입니다.</p>
+          </header>
+          <!-- 초기 데이터의 출처다. main.js는 이 안의 article을 읽기만 하며 원본으로 유지한다. -->
+          <div class="area" id="actual-area">
+            <article class="sample-card" data-sample="mini-react">
+              <span class="sample-tag">오늘의 작은 실험</span>
+              <h3>나만의 미니 리액트</h3>
+              <p>DOM을 읽고, <strong>Virtual DOM</strong>으로 표현해 봅니다.</p>
+              <ul>
+                <li>태그와 속성 읽기</li>
+                <li>텍스트와 자식 순서 보존하기</li>
+                <li>같은 구조로 새 DOM 만들기</li>
+              </ul>
+              <p>테스트 영역을 수정해도 이 원본은 유지됩니다.</p>
+            </article>
+          </div>
+        </section>
+
+        <section class="panel" aria-labelledby="test-heading">
+          <header class="panel-header">
+            <h2 id="test-heading">테스트 영역</h2>
+            <p id="edit-note">내용을 클릭하거나 Tab으로 이동해 텍스트를 편집할 수 있습니다.</p>
+          </header>
+          <!-- 초기 샘플을 여기에 중복 작성하지 않는다. VNode를 렌더링한 새 DOM이 들어갈 자리다. -->
+          <!-- contenteditable은 패널이 관리하므로 샘플 VNode의 props에 섞이지 않는다. -->
+          <div class="area" id="test-area" contenteditable="true" role="textbox" aria-multiline="true" aria-label="테스트 영역 편집" aria-describedby="edit-note" spellcheck="false"></div>
+        </section>
+      </div>
+
+      <p class="status" id="app-status" role="status">초기 화면을 준비하고 있습니다.</p>
+    </main>
+  </body>
+</html>
