@@ -1,0 +1,26 @@
+{
+  "name": "mini-react",
+  "version": "1.0.0",
+  "description": "Virtual DOM, Diff, Hooks를 직접 구현한 미니 리액트",
+  "main": "index.js",
+  "scripts": {
+    "test": "vitest",
+    "test:run": "vitest run"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/beeeeyayeyao-cpu/mini-react.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "module",
+  "bugs": {
+    "url": "https://github.com/beeeeyayeyao-cpu/mini-react/issues"
+  },
+  "homepage": "https://github.com/beeeeyayeyao-cpu/mini-react#readme",
+  "devDependencies": {
+    "jsdom": "^31.0.0",
+    "vitest": "^5.1.0"
+  }
+}

@@ -1,0 +1,122 @@
+import { TEXT } from './h.js';
+//vdom -> dom 으로 복원하는 코드
+
+//가상 돔을 진짜 DOM으로 재귀 생성하는 함수
+export function createElement(vnode) {
+  //노드의 type이 #text라면 태그를 만들 필요가 없습니다.
+  //브라우저 API인 document.createTextNode(vnode.text)를 써서 순수 글자 노드를 만들어 바로 반환합니다.
+  //예를 들어 <text>안녕</text> 여기서 '안녕'을 뜻함
+
+  // [ text 객체 (Type: Object / Class: Text) ]
+  // │
+  // ├── nodeType: 3          (브라우저가 빠르게 판별하기 위한 숫자 정수 코드)
+  // ├── nodeName: "#text"    (사람과 엔진이 읽기 위한 공식 이름표 문자열)
+  // ├── data: "안녕"         (진짜 화면에 찍힐 글자 내용)
+  // └── ...기타 수십 개의 브라우저 내부 메서드들
+
+  // 이런 형태로 저장
+  if (vnode.type === TEXT) return document.createTextNode(vnode.text);
+
+
+  //vnode.type에 적힌 태그 이름(div, button, h1 등)대로 실제 HTML 요소를 메모리에 생성합니다.
+
+  // 모든 HTML 태그 요소는 부모 클래스인 Node와 Element, HTMLElement를 공통으로 상속받습니다.
+  // Node (nodeType, nodeName, childNodes, appendChild 등 제공)
+  //   └── Element (tagName, attributes, children, getAttribute 등 제공)
+  //         └── HTMLElement (id, className, style, addEventListener 등 제공)
+  //               ├── HTMLDivElement    (<div> 전용)
+  //               ├── HTMLInputElement  (<input> 전용)
+  //               └── HTMLImageElement  (<img> 전용)
+
+
+  //예) div 태그를 만들면 브라우저가 내부적으로 HTMLDivElement라는 클래스 객체를 만들어 반환합니다.
+  // [ element 객체 (Type: Object / Class: HTMLDivElement) ]
+  // │
+  // ├── nodeType: 1                 (ELEMENT_NODE)
+  // ├── nodeName: "DIV"             (대문자 태그명)
+  // ├── tagName: "DIV"              (태그 이름)
+  // ├── id: "" / className: ""      (HTML 기본 속성들)
+  // ├── attributes: NamedNodeMap    (태그에 붙은 속성 사전)
+  // ├── childNodes: NodeList        (자식 노드 목록: 텍스트 노드 포함)
+  // ├── children: HTMLCollection    (자식 요소 목록: 순수 태그만)
+  // ├── style: CSSStyleDeclaration  (인라인 스타일 객체)
+  // └── ...수백 개의 브라우저 C++ 바인딩 프로퍼티 및 메서드들 (addEventListener, appendChild 등)
+  const el = document.createElement(vnode.type);
+
+
+  // vnode.props에 담긴 키-값 쌍(id: 'btn', class: 'box' 등)을 순회하며, 
+  // 아래에 정의된 setProp 함수를 호출해 요소에 속성을 부여합니다.
+  //entries가 하는일 : vnode.props가 { id: 'box', class: 'active' }일 때 -> [ ['id', 'box'], ['class', 'active'] ]
+  for (const [name, value] of Object.entries(vnode.props)) setProp(el, name, value);
+
+  //children 배열을 돌면서 자식 VNode마다 createElement(child)를 재귀 호출합니다.
+  //만들어진 자식 실제 DOM 노드를 부모 요소의 뱃속에 el.appendChild(...)로 차곡차곡 집어넣은 뒤,
+  //완성된 최상위 부모 노드(el)를 반환합니다.
+  vnode.children.forEach(child => el.appendChild(createElement(child)));
+  return el;
+}
+
+//DOM 속성/이벤트 완벽 분기 처리
+export function setProp(el, name, value) {
+  //key는 리액트 엔진 내부에서 노드를 식별하기 위한 특수 속성일 뿐, 실제 HTML 태그 속성이 아니므로 건너뜁니다.
+  if (name === 'key') return;
+
+  //속성 이름이 onClick, onInput처럼 'on'으로 시작하고 값이 함수라면 
+  // addEventListener를 통해 실제 브라우저 이벤트로 등록합니다.
+  if (name.startsWith('on') && typeof value === 'function') {
+    el.addEventListener(name.slice(2).toLowerCase(), value);   // Phase 2 대비
+  } 
+  
+  //<input>의 입력값이나 체크박스의 체크 여부는 setAttribute('value', ...)로 
+  // 넣으면 버그가 생기기 때문에 프로퍼티로 설정
+  else if (name === 'value' || name === 'checked') {
+    el[name] = value;
+  }
+
+
+  //값이 false, null, undefined라면 해당 속성을 태그에서 제거
+  else if (value === false || value == null) {
+    el.removeAttribute(name);
+  } 
+  
+  /*
+    그 외의 경우는 일반적인 HTML 속성으로 간주하고 setAttribute(name, value)로 설정합니다.
+    단, value가 true라면 <input disabled>처럼 속성만 존재하는 HTML 태그를 만들기 위해, false 일때는 위에서 삭제하기 때문에
+    setAttribute(name, '')로 처리합니다.
+  */
+  else {
+    el.setAttribute(name, value === true ? '' : value);
+  }
+}
+
+// ───────────────────────── Day 2: Patch 용 속성 갱신 ─────────────────────────
+
+const isEvent = (name, value) => name.startsWith('on') && typeof value === 'function';
+
+//속성 하나를 "이전 값 → 새 값" 으로 갱신합니다. (diffProps 의 결과를 반영할 때 사용)
+export function updateProp(el, name, oldValue, newValue) {
+  if (name === 'key') return;
+
+  // 이벤트 핸들러: 이전 함수를 먼저 떼어내야 핸들러가 중복으로 쌓이지 않습니다.
+  if (isEvent(name, oldValue) || isEvent(name, newValue)) {
+    const eventName = name.slice(2).toLowerCase();
+    if (typeof oldValue === 'function') el.removeEventListener(eventName, oldValue);
+    if (typeof newValue === 'function') el.addEventListener(eventName, newValue);
+    return;
+  }
+
+  // 값이 사라졌거나 false/null 이면 속성 제거
+  if (newValue === undefined || newValue === null || newValue === false) {
+    removeProp(el, name);
+    return;
+  }
+
+  setProp(el, name, newValue);
+}
+
+//속성 제거. value/checked 는 프로퍼티라서 removeAttribute 만으로는 화면 값이 안 지워집니다.
+export function removeProp(el, name) {
+  if (name === 'value') el.value = '';
+  else if (name === 'checked') el.checked = false;
+  el.removeAttribute(name);
+}
