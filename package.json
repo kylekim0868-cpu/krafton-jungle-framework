@@ -2,23 +2,23 @@
   "name": "mini-react",
   "version": "1.0.0",
   "description": "Virtual DOM, Diff, Hooks를 직접 구현한 미니 리액트",
-  "main": "index.js",
+  "main": "src/index.js",
   "scripts": {
     "test": "vitest",
     "test:run": "vitest run"
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/beeeeyayeyao-cpu/mini-react.git"
+    "url": "git+https://github.com/kylekim0868-cpu/krafton-jungle-framework.git"
   },
   "keywords": [],
-  "author": "",
-  "license": "ISC",
+  "author": "이예준 (yj)",
+  "license": "MIT",
   "type": "module",
   "bugs": {
-    "url": "https://github.com/beeeeyayeyao-cpu/mini-react/issues"
+    "url": "https://github.com/kylekim0868-cpu/krafton-jungle-framework/issues"
   },
-  "homepage": "https://github.com/beeeeyayeyao-cpu/mini-react#readme",
+  "homepage": "https://github.com/kylekim0868-cpu/krafton-jungle-framework/tree/feat/KJF-1-yj-mini-react#readme",
   "devDependencies": {
     "jsdom": "^31.0.0",
     "vitest": "^5.1.0"
