@@ -1,12 +1,13 @@
-import { TEXT } from './h.js';
-//vdom -> dom 으로 복원하는 코드
+import { TEXT } from './h.js'; //h.js 파일에서 TEXT 상수('#text') 가져옴
 
-//가상 돔을 진짜 DOM으로 재귀 생성하는 함수
+//가상 돔을 진짜 DOM으로 재귀 생성하는 함수, vnode 인자는 h 반환값
 export function createElement(vnode) {
-  //노드의 type이 #text라면 태그를 만들 필요가 없습니다.
-  //브라우저 API인 document.createTextNode(vnode.text)를 써서 순수 글자 노드를 만들어 바로 반환합니다.
-  //예를 들어 <text>안녕</text> 여기서 '안녕'을 뜻함
 
+  //노드의 type이 TEXT(#text)라면 태그를 만들 필요가 없습니다.
+  //#text 타입은 예를 들어 <p>안녕</p> 에서 태그 안의 글자 '안녕'을 뜻함
+  //브라우저 API인 document.createTextNode(vnode.text)를 써서 순수 글자 노드를 만들어 바로 반환합니다.
+
+  // 아래처럼 인스턴스 생성
   // [ text 객체 (Type: Object / Class: Text) ]
   // │
   // ├── nodeType: 3          (브라우저가 빠르게 판별하기 위한 숫자 정수 코드)
@@ -89,8 +90,13 @@ export function setProp(el, name, value) {
   }
 }
 
+
+
+
 // ───────────────────────── Day 2: Patch 용 속성 갱신 ─────────────────────────
 
+//속성 이름이 'onClick', 'onInput'처럼 'on'으로 시작하고, 그 값이 함수인지 검사하는 판별 함수입니다.
+// 이벤트 관련 처리를 할 때 중복 코드를 줄이기 위해 깔끔하게 분리해 둔 유틸리티입니다.
 const isEvent = (name, value) => name.startsWith('on') && typeof value === 'function';
 
 //속성 하나를 "이전 값 → 새 값" 으로 갱신합니다. (diffProps 의 결과를 반영할 때 사용)

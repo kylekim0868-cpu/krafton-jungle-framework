@@ -21,10 +21,37 @@ export function h(type, props, ...children) {
 }
 
 /*
+최종적으로 vdom 을 반환
 {
   type: '',
   props: { id: '', class: '' }, 
   children: [ ... ]
 }
-이런 형식의 객체 반환
+*/
+
+/*
+<div>
+  <p>안녕하세요</p>
+</div>
+
+아래와 같이 나타낼 수 있음
+
+{
+  type: 'div',
+  props: {}, // 👈 1. 빈 객체 ({ id: '', class: '' } 아님)
+  children: [
+    {
+      type: 'p',
+      props: {}, 
+      children: [
+        {
+          type: '#text',
+          props: {},
+          children: [],
+          text: '안녕하세요' // 👈 2. children에 글자를 넣는 게 아니라 text 필드에 저장
+        }
+      ]
+    }
+  ]
+}
 */
