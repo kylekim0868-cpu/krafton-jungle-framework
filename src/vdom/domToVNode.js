@@ -1,6 +1,6 @@
 import { createTextVNode } from './h.js'; //h.js 에서 createTextVNode 함수를 가져옵니다.
 
-//dom 을 vdom 으로 변환하는 함수 / 인자 node 는 실제 DOM 노드 객체
+//dom 을 vdom 으로 변환하는 함수 // 인자 node 는 실제 DOM 노드 객체
 export function domToVNode(node) {
   //브라우저 실제 DOM에서 태그 사이의 글자는 TEXT_NODE라는 별도의 노드 객체로 존재합니다.
   if (node.nodeType === Node.TEXT_NODE) {  //3

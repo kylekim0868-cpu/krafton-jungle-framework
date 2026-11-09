@@ -41,7 +41,7 @@ export function createElement(vnode) {
   // ├── childNodes: NodeList        (자식 노드 목록: 텍스트 노드 포함)
   // ├── children: HTMLCollection    (자식 요소 목록: 순수 태그만)
   // ├── style: CSSStyleDeclaration  (인라인 스타일 객체)
-  // └── ...수백 개의 브라우저 C++ 바인딩 프로퍼티 및 메서드들 (addEventListener, appendChild 등)
+  // └── ...수백 개의 브라우저 C++ 바인딩 프로퍼티 및 메서드들 (addEventListener, appendChild 등) -> 바인딩 프로퍼티인 이유 DOM 의 내역은 C++ 랜더링 엔진과 JS 를 연결해준다는 뜻, 프로퍼티는 nodeType 이런거임
   const el = document.createElement(vnode.type);
 
 

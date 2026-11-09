@@ -10,8 +10,12 @@ import { TEXT } from './h.js';
    - href="javascript:..." 는 클릭 시 코드가 실행됩니다.
   → 테스트 페이지에서 임의 코드가 실행되지 않도록(XSS 방지) VDOM 단계에서 걸러냅니다.
 */
+
+//금지할 위험 태그 목록
 export const BLOCKED_TAGS = new Set(['script', 'iframe', 'object', 'embed', 'frame', 'frameset', 'base', 'meta', 'link']);
+//주소(URL)를 값으로 받는 HTML 속성 목록입니다.
 const URL_ATTRIBUTES = new Set(['href', 'src', 'action', 'formaction', 'xlink:href']);
+//위험한 주소 패턴을 잡는 정규표현식입니다.
 const DANGEROUS_URL = /^\s*(javascript|vbscript|data:text\/html)/i;
 
 // 반환: { vnode, removed: ['<script>', 'onclick', ...] }  (vnode 가 통째로 막히면 vnode = null)

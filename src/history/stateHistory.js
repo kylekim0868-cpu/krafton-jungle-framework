@@ -16,6 +16,7 @@
 export const MAX_HISTORY_SIZE = 100;
 
 export class StateHistory {
+  //함수 생성자
   constructor(initialVNode, initialMeta = {}, maxSize = MAX_HISTORY_SIZE) {
     if (maxSize < 1) throw new Error('maxSize 는 1 이상이어야 합니다.');
     this.maxSize = maxSize;

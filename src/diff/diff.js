@@ -33,12 +33,27 @@ function diffNode(oldVNode, newVNode, path, patches) {
   if (oldVNode == null && newVNode == null) return;
 
   // [케이스 1] CREATE: 이전에는 없던 노드가 생김
+  /*
+    예시
+    {
+      type: 'CREATE',
+      path: [1, 2],
+      node: { type: 'span', props: {}, children: [] }
+    }
+  */
   if (oldVNode == null) {
     patches.push({ type: PATCH.CREATE, path, node: newVNode });
     return;
   }
 
   // [케이스 2] REMOVE: 있던 노드가 사라짐
+  /*
+    예시
+    {
+      type: 'REMOVE',
+      path: [2]
+    }
+  */
   if (newVNode == null) {
     patches.push({ type: PATCH.REMOVE, path });
     return;
@@ -47,6 +62,14 @@ function diffNode(oldVNode, newVNode, path, patches) {
   // [케이스 3] REPLACE: 태그 이름이 다르거나(div → span), 텍스트 ↔ 요소 로 바뀜, 또는 key 가 다름
   //  - React 의 가정: "타입이 다르면 완전히 다른 트리" → 자식까지 비교하지 않고 통째로 교체 (O(n) 의 비결)
   //  - 텍스트 노드의 type 은 '#text' 이므로, 텍스트 ↔ 요소 변경도 이 조건에 걸립니다.
+  /*
+    예시
+    {
+      type: 'REPLACE',
+      path: [0, 1],
+      node: { type: 'div', props: {}, children: [] }
+    }
+  */
   if (oldVNode.type !== newVNode.type || oldVNode.props?.key !== newVNode.props?.key) {
     patches.push({ type: PATCH.REPLACE, path, node: newVNode });
     return;
@@ -54,6 +77,14 @@ function diffNode(oldVNode, newVNode, path, patches) {
 
   // [케이스 4] TEXT: 둘 다 텍스트 노드인데 내용이 다름
   //위에서 둘이 타입이 다른지 검사했으므로 oldVNode 만 검사해도 됨
+  /*
+    예시
+    {
+      type: 'TEXT',
+      path: [1, 0],
+      text: '안녕'
+    }
+  */
   if (oldVNode.type === TEXT) {
     if (oldVNode.text !== newVNode.text) {
       patches.push({ type: PATCH.TEXT, path, text: newVNode.text });
@@ -62,6 +93,14 @@ function diffNode(oldVNode, newVNode, path, patches) {
   }
 
   // [케이스 5] PROPS: 같은 태그 → 속성만 비교
+  /*
+    예시
+    {
+      type: 'PROPS',
+      path: [0],
+      changes: [ { name: 'id', oldValue: 'btn', newValue: 'submit-btn' } ]
+    }
+  */
   const changes = diffProps(oldVNode.props, newVNode.props);
   if (changes.length > 0) {
     patches.push({ type: PATCH.PROPS, path, changes });
@@ -76,3 +115,8 @@ function diffNode(oldVNode, newVNode, path, patches) {
     diffNode(oldVNode.children[i], newVNode.children[i], [...path, i], patches);
   }
 }
+
+
+/*
+
+*/
