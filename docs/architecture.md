@@ -17,15 +17,18 @@ Phase 2 상태 변경 → 루트 렌더 ──┘
 | `src/vdom/createVNode.js` | 코드에서 같은 형식의 VNode 만들기 | 빈 파일 |
 | `src/vdom/vnode.js` | 공통 입력·key 계약 검증 | 문자열 속성·순환 참조·빈/중복 형제 data-key 검사 |
 | `src/vdom/diff.js`, `patch.js` | VNode 비교, 필요한 DOM 변경 | key 조회·이동 계획과 부분 Patch 구현. preparePatch로 준비·적용을 분리 |
-| `demos/phase1/main.js`, `history.js` | 실제·편집 영역 연결, 이력 저장·이동 | 고정 데이터 루트 초기화·Patch 버튼·실패 복구 구현. 이력 파일과 비활성 이력 버튼은 P1-04 대상 |
+| `demos/phase1/main.js` | 실제·편집 영역과 버튼 연결 | 초기화·부분 Patch·이력 복원·실패 복구. 양쪽 반영 성공 후에만 이력 후보를 확정 |
+| `demos/phase1/history.js` | DOM 없는 스냅샷·위치 계산 | 초기 이력·새 저장·앞뒤 이동 후보를 순수 함수로 반환. 깊은 복사·동결로 과거 데이터를 보호 |
 | `demos/phase1/editorKeys.js` | 브라우저 편집으로 복제된 key 정리 | 기존 항목 key를 추적하고 구조 변경 입력에서 새 중복 노드에만 일회성 key 발급. 공통 엔진의 중복 거부 정책 유지 |
 | `src/component/FunctionComponent.js`, `hooks.js` | 루트의 이전 VNode·Hook 상태, mount·update | 빈 파일 |
 | `demos/phase2/` | 입력·클릭·Hooks 데모 | HTML·JS 파일 모두 비어 있음 |
-| `tests/unit/`, `tests/browser/` | 모듈 계약과 실제 DOM·사용자 흐름 검사 | P1-00·P1-01 회귀, P1-02 Diff·Patch·버튼·오류 복구와 제한된 성능 측정, P1-03 중첩·위치 밀림·연속 편집·복합 실패 복구를 연결. 사용자 이해·수용은 별도로 확인 |
+| `tests/unit/`, `tests/browser/` | 모듈 계약과 실제 DOM·사용자 흐름 검사 | P1-00·P1-01 회귀, P1-02 Diff·Patch·성능, P1-03 복합 변경, P1-04 이력·분기·실패 보존을 연결. 사용자 이해·수용은 별도로 확인 |
 
 기존 VNode는 `{ kind: 'text', text }` 또는 `{ kind: 'element', tag, props, children }`다. `<p>안녕</p>`은 `p` 요소와 텍스트 자식으로 읽고 `renderVNode`가 각각 새 DOM을 만든다. 초기화 연결은 `demos/phase1/main.js`에서 볼 수 있다.
 
 P1-02에서 HTML `data-key`를 같은 부모 안의 항목 식별자로 사용한다. 고유 key가 있는 항목은 이동해도 같은 DOM을 재사용하고, 없는 자식은 같은 위치에서 비교한다. Diff는 이전 트리 경로의 변경 목록을 만들고 Patch는 모든 참조와 최종 배치를 준비한 뒤 적용한다. 패널은 두 영역 반영 성공 후 기준 VNode를 확정하며 적용 중 실패 시 마지막 확정 상태로 복구한다. 구체적인 필드·지원 범위는 결정 0003을 따른다.
+
+P1-04의 기준 상태는 이력의 `entries[index]`다. 새 저장·이동은 원본을 바꾸지 않는 후보로 준비하고 두 영역 반영 성공 후 확정한다. 새 저장이 성공하면 앞으로 기록을 자르고, 무변경·실패는 보존한다. 앞뒤 이동은 미확정 편집을 버리고 저장된 VNode로 새 DOM을 만든다. 스냅샷은 페이지 메모리에 복사·동결하며 새로고침하면 초기화한다.
 
 ## 기존 결정의 상태
 
@@ -33,7 +36,7 @@ P1-02에서 HTML `data-key`를 같은 부모 안의 항목 식별자로 사용�
 | --- | --- |
 | [0001 · 초기화 계약](decisions/0001-vnode-initialization.md) | 승인된 요소·텍스트 범위와 변환·렌더 계약. P1-00·P1-01 작업 때 확인 |
 | [0002 · Node 개발 서버](decisions/0002-node-development-server.md) | 선택한 실행 환경의 근거. 환경 변경 때 확인 |
-| [0003 · Diff·Patch·이력 계약](decisions/0003-diff-patch-history-contract.md#항목별-승인-상태와-적용-단계) | 사용자 선택인 고정 루트·key 비교·실패 복구와 구현 세부사항의 수용을 구분한다. 이력은 설계안이며 P1-04에서 확정·연결 |
+| [0003 · Diff·Patch·이력 계약](decisions/0003-diff-patch-history-contract.md#항목별-승인-상태와-적용-단계) | 고정 루트·key 비교·실패 복구와 이력 분기·미확정 편집의 사용자 선택을 기록. 구현 세부사항과 실행 검증·사용자 수용은 구분 |
 
 문서 정리는 기존 설계안의 승인을 뜻하지 않는다. 중요한 설계는 해당 작업의 예시와 영향을 함께 보고 하나씩 결정한다.
 

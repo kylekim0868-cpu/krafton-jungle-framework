@@ -46,21 +46,22 @@
       <h1>Virtual DOM 실험실</h1>
       <p class="intro">실제 영역의 DOM을 Virtual DOM으로 읽고, 같은 트리로 테스트 영역을 만듭니다.<br>오른쪽 내용을 클릭해서 직접 편집해 보세요.</p>
 
-      <!-- 초기화 성공 후 Patch를 활성화한다. 이력 버튼은 P1-04에서 연결한다. -->
+      <!-- 초기화 성공 후 Patch를 활성화하고, 이력 위치에 맞춰 이동 버튼을 갱신한다. -->
       <div class="toolbar" role="group" aria-label="화면 갱신과 이력 이동">
         <button id="patch-button" type="button" disabled aria-describedby="controls-note">Patch</button>
         <button id="back-button" type="button" disabled aria-describedby="controls-note">뒤로가기</button>
         <button id="forward-button" type="button" disabled aria-describedby="controls-note">앞으로가기</button>
-        <span class="hint" id="controls-note">Patch로 편집을 반영합니다. 이력 이동은 다음 작업에서 연결됩니다.</span>
+        <span class="hint" id="controls-note">Patch로 저장합니다. 앞뒤 이동 시 Patch 전 편집 내용은 버립니다.</span>
+        <output class="hint" id="history-position" aria-live="polite">이력 준비 중</output>
       </div>
 
       <div class="panels">
         <section class="panel" aria-labelledby="actual-heading">
           <header class="panel-header">
             <h2 id="actual-heading">실제 영역</h2>
-            <p>마지막으로 확정된 DOM입니다. Patch를 누르면 갱신됩니다.</p>
+            <p>마지막으로 확정된 DOM입니다. Patch와 이력 이동으로 갱신됩니다.</p>
           </header>
-          <!-- 초기 데이터의 출처다. main.js는 콘텐츠를 읽고 성공한 Patch에서만 확정 내용을 갱신한다. -->
+          <!-- 초기 데이터의 출처다. main.js가 Patch·이력 이동 성공 후 확정 상태를 갱신한다. -->
           <div class="area" id="actual-area">
             <article class="sample-card" data-sample="mini-react">
               <span class="sample-tag">오늘의 작은 실험</span>
