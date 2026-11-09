@@ -21,7 +21,7 @@ Phase 2 상태 변경 → 루트 렌더 ──┘
 | `demos/phase1/editorKeys.js` | 브라우저 편집으로 복제된 key 정리 | 기존 항목 key를 추적하고 구조 변경 입력에서 새 중복 노드에만 일회성 key 발급. 공통 엔진의 중복 거부 정책 유지 |
 | `src/component/FunctionComponent.js`, `hooks.js` | 루트의 이전 VNode·Hook 상태, mount·update | 빈 파일 |
 | `demos/phase2/` | 입력·클릭·Hooks 데모 | HTML·JS 파일 모두 비어 있음 |
-| `tests/unit/`, `tests/browser/` | 모듈 계약과 실제 DOM·사용자 흐름 검사 | P1-00·P1-01 회귀, P1-02 Diff·Patch·버튼·오류 복구와 제한된 성능 측정을 연결. 사용자 이해·수용은 별도로 확인 |
+| `tests/unit/`, `tests/browser/` | 모듈 계약과 실제 DOM·사용자 흐름 검사 | P1-00·P1-01 회귀, P1-02 Diff·Patch·버튼·오류 복구와 제한된 성능 측정, P1-03 중첩·위치 밀림·연속 편집·복합 실패 복구를 연결. 사용자 이해·수용은 별도로 확인 |
 
 기존 VNode는 `{ kind: 'text', text }` 또는 `{ kind: 'element', tag, props, children }`다. `<p>안녕</p>`은 `p` 요소와 텍스트 자식으로 읽고 `renderVNode`가 각각 새 DOM을 만든다. 초기화 연결은 `demos/phase1/main.js`에서 볼 수 있다.
 
