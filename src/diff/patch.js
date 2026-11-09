@@ -57,13 +57,17 @@ export function applyPatches(container, patches) {
 
 
   // 1단계: 대상 노드 미리 찾기
-  const jobs = patches.map((patch) => { //안쪽 콜백(람다) 함수 시작 //초기 patch : [0, 2, 3, 1, 2, 0]
+  //자바스크립트의 .map()은 일반적인 for문이나 while문처럼 배열 안의 요소들을 하나씩 꺼내면서 콜백 함수를 반복 실행하고, 
+  //그 결과들을 모아 새로운 배열을 만들어 반환하는 배열 전용 반복 메서드입니다.
+  
+  const jobs = patches.map((patch) => { //안쪽 콜백(람다) 함수 시작 //예) 초기 patch : [0, 2, 3, 1, 2, 0]
+    // CREATE 는 아직 없는 노드이므로 "부모"를 찾아둡니다.
     if (patch.type === PATCH.CREATE) {
-      // CREATE 는 아직 없는 노드이므로 "부모"를 찾아둡니다.
-      const parentPath = patch.path.slice(0, -1);
       // 결과: [0, 2, 3, 1, 2]  (맨 끝의 0 하나만 똑 떼어냄!)
-      const parent = patch.path.length === 0 ? container : getNode(container, parentPath);
+      const parentPath = patch.path.slice(0, -1);
       //길이가 0이라면 container(루트) 노드 반환 아니면 [0, 2, 3, 1, 2] 경로를 타고 가서 2의 dom을 반환
+      const parent = patch.path.length === 0 ? container : getNode(container, parentPath);
+
       return { patch, parent, index: patch.path[patch.path.length - 1] };
       //위와 같은 경우면 index = 0이 됨
     }
@@ -78,15 +82,18 @@ export function applyPatches(container, patches) {
         //타입이 CREATE 라면 노드 추가하기
         // index 위치에 끼워 넣기 (해당 위치에 노드가 없으면 insertBefore(x, null) = appendChild)
         const ref = index === undefined ? null : parent.childNodes[index] ?? null;
+        //parent 안에 newNode를 ref 바로 앞에 삽입합니다.
         parent.insertBefore(createElement(patch.node), ref);
         break;
       }
       case PATCH.REMOVE:
         //타입이 REMOVE 라면 타겟 삭제
+        //부모 노드의 자식 목록에서 지정한 자식 노드를 도려내어 완전히 제거합니다.
         target.parentNode.removeChild(target);
         break;
       case PATCH.REPLACE:
         //타입이 REPLACE 라면 
+        //부모 노드의 자식 목록에서 기존 자식을 떼어내고, 그 정확한 자리에 새로운 노드를 갈아 끼웁니다.
         target.parentNode.replaceChild(createElement(patch.node), target);
         break;
       case PATCH.TEXT:
@@ -107,7 +114,8 @@ export function applyPatches(container, patches) {
 }
 
 // path(인덱스 배열)를 따라 실제 DOM 노드를 찾아 내려갑니다.
-function getNode(container, path) { //예 : path = [1, 0] -> 루트의 1번 자식 -> 1번 자식의 0번 자식
+// (export: Phase 1 페이지에서 변경된 노드를 하이라이트할 때도 사용)
+export function getNode(container, path) { //예 : path = [1, 0] -> 루트의 1번 자식 -> 1번 자식의 0번 자식
   // VDOM의 루트 노드로 진입
   let node = container.childNodes[0];
   for (const i of path) {

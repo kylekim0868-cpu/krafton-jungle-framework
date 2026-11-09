@@ -4,6 +4,7 @@
   "description": "Virtual DOM, Diff, Hooks를 직접 구현한 미니 리액트",
   "main": "src/index.js",
   "scripts": {
+    "dev": "node scripts/devServer.js",
     "test": "vitest",
     "test:run": "vitest run"
   },

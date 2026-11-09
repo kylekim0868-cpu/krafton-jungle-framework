@@ -5,7 +5,8 @@ import * as miniReact from '../src/index.js';
 describe('src/index.js 공개 API', () => {
   it.each([
     ['h'], ['createTextVNode'], ['domToVNode'], ['createElement'], ['updateProp'], ['removeProp'],
-    ['vnodeToHTML'], ['diff'], ['diffProps'], ['applyPatches'], ['patch'],
+    ['vnodeToHTML'], ['htmlToVNodes'], ['normalizeVNode'], ['sanitizeVNode'],
+    ['diff'], ['diffProps'], ['applyPatches'], ['patch'], ['getNode'], ['StateHistory'],
   ])('%s 함수를 내보낸다', (name) => {
     expect(typeof miniReact[name]).toBe('function');
   });

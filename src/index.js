@@ -7,8 +7,13 @@ export { h, createTextVNode, TEXT } from './vdom/h.js';
 export { domToVNode } from './vdom/domToVNode.js';
 export { createElement, setProp, updateProp, removeProp } from './vdom/createElement.js';
 export { vnodeToHTML } from './vdom/vnodeToHTML.js';
+export { htmlToVNodes, normalizeVNode } from './vdom/htmlToVNode.js';
+export { sanitizeVNode } from './vdom/sanitizeVNode.js';
 
 // Phase 1: Diff + Patch
 export { diff, PATCH } from './diff/diff.js';
 export { diffProps } from './diff/diffProps.js';
-export { applyPatches, patch } from './diff/patch.js';
+export { applyPatches, patch, getNode } from './diff/patch.js';
+
+// Phase 1: State History
+export { StateHistory, MAX_HISTORY_SIZE } from './history/stateHistory.js';

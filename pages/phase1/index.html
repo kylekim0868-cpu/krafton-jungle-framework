@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Phase 1 · Virtual DOM Diff &amp; Patch</title>
+  <link rel="stylesheet" href="./style.css">
+</head>
+<body>
+  <header class="page-header">
+    <div>
+      <h1>Virtual DOM · Diff · Patch</h1>
+      <p class="subtitle">테스트 영역의 HTML 을 고치고 <kbd>Patch</kbd> 를 누르면, 바뀐 부분만 실제 영역에 반영됩니다.</p>
+    </div>
+    <nav class="controls" aria-label="History 제어">
+      <button type="button" id="back-button" title="이전 상태로 이동">◀ 뒤로가기</button>
+      <button type="button" id="patch-button" class="primary" title="Ctrl + Enter">Patch</button>
+      <button type="button" id="forward-button" title="다음 상태로 이동">앞으로가기 ▶</button>
+      <span id="history-label" class="history-label" aria-live="polite">1 / 1</span>
+    </nav>
+  </header>
+
+  <main class="panels">
+    <section class="panel">
+      <div class="panel-header">
+        <h2>실제 영역</h2>
+        <span class="hint">Patch 로 바뀐 노드가 잠깐 강조됩니다</span>
+      </div>
+      <div class="real-wrapper" id="real-wrapper">
+        <!-- #real-mount 의 첫 번째 자식이 VDOM 의 루트입니다. -->
+        <div id="real-mount"><div id="real-area" class="sample">
+          <h1 class="title">미니 리액트 실험실</h1>
+          <p>이 영역은 <b>실제 DOM</b> 입니다. 오른쪽 <em>테스트 영역</em>에서 HTML 을 고쳐 보세요.</p>
+          <ul class="todo">
+            <li>Virtual DOM 만들기</li>
+            <li>Diff 알고리즘 구현</li>
+            <li>Patch 로 바뀐 부분만 반영</li>
+          </ul>
+          <label>이름 <input type="text" placeholder="입력해 보세요"></label>
+          <label><input type="checkbox"> 체크박스</label>
+          <button type="button" disabled>비활성 버튼</button>
+          <a href="https://developer.mozilla.org/ko/docs/Web/API/Document_Object_Model">DOM 문서</a>
+          <table>
+            <tr><th>케이스</th><th>Patch</th></tr>
+            <tr><td>태그 변경</td><td>REPLACE</td></tr>
+          </table>
+        </div></div>
+        <div id="highlight-layer" class="highlight-layer" aria-hidden="true"></div>
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-header">
+        <h2>테스트 영역</h2>
+        <span id="dirty-badge" class="badge dirty" hidden>수정됨 · Patch 대기</span>
+        <button type="button" id="reset-button" class="link-button" title="수정한 내용을 버리고 현재 상태로 되돌립니다">수정 취소</button>
+      </div>
+      <textarea id="test-area" spellcheck="false" aria-label="테스트 영역 HTML 편집기"></textarea>
+    </section>
+  </main>
+
+  <section class="panels bottom">
+    <section class="panel">
+      <div class="panel-header">
+        <h2>변경 로그</h2>
+        <span id="stats" class="hint"></span>
+      </div>
+      <ol id="patch-log" class="patch-log"></ol>
+    </section>
+    <section class="panel">
+      <div class="panel-header">
+        <h2>State History</h2>
+        <span class="hint">항목을 누르면 그 상태로 이동합니다</span>
+      </div>
+      <ol id="history-list" class="history-list"></ol>
+    </section>
+  </section>
+
+  <script type="module">
+    import { setupPhase1Page } from './phase1Page.js';
+    setupPhase1Page(document);
+  </script>
+</body>
+</html>
