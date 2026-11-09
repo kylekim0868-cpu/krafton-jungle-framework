@@ -19,7 +19,7 @@ Phase 2 상태 변경 → 루트 렌더 ──┘
 | `demos/phase1/main.js`, `history.js` | 실제·편집 영역 연결, 이력 저장·이동 | 초기화만 구현. 이력 파일은 비어 있고 Patch·이력 버튼은 비활성화 |
 | `src/component/FunctionComponent.js`, `hooks.js` | 루트의 이전 VNode·Hook 상태, mount·update | 빈 파일 |
 | `demos/phase2/` | 입력·클릭·Hooks 데모 | HTML·JS 파일 모두 비어 있음 |
-| `tests/unit/`, `tests/browser/` | 모듈 계약과 실제 DOM·사용자 흐름 검사 | 현재 P1-00 검사만 있음. 실행 결과와 사용자 이해는 별도로 확인 |
+| `tests/unit/`, `tests/browser/` | 모듈 계약과 실제 DOM·사용자 흐름 검사 | P1-00 초기화와 P1-01 변환·렌더 지원 범위 검사를 연결. 실행 결과·사용자 이해·수용은 별도로 확인 |
 
 기존 VNode는 `{ kind: 'text', text }` 또는 `{ kind: 'element', tag, props, children }`다. `<p>안녕</p>`은 `p` 요소와 텍스트 자식으로 읽고 `renderVNode`가 각각 새 DOM을 만든다. 초기화 연결은 `demos/phase1/main.js`에서 볼 수 있다.
 
