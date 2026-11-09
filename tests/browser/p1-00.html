@@ -78,10 +78,11 @@
         assert(source !== rendered, 'Source and target are the same node.');
       });
 
-      await test('기능 / Patch·뒤로가기·앞으로가기 버튼은 표시되고 비활성화된다', () => {
+      await test('기능 / Patch는 사용할 수 있고 이력 버튼은 표시되며 비활성화된다', () => {
         const buttons = Array.from(frame.contentDocument.querySelectorAll('.toolbar button'));
         assert(buttons.map((button) => button.textContent).join(',') === 'Patch,뒤로가기,앞으로가기', 'Missing controls.');
-        assert(buttons.every((button) => button.disabled && button.getBoundingClientRect().width > 0), 'Controls are enabled or hidden.');
+        assert(buttons.every((button) => button.getBoundingClientRect().width > 0), 'Controls are hidden.');
+        assert(!buttons[0].disabled && buttons[1].disabled && buttons[2].disabled, 'Wrong controls state.');
       });
 
       await test('기능 / 편집 영역은 키보드 초점을 받고 편집할 수 있다', () => {
