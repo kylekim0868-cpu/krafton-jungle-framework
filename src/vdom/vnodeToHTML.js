@@ -29,7 +29,8 @@ export function vnodeToHTML(vnode, depth = 0) {
   */
   const attrs = Object.entries(vnode.props)
     .filter(([name, value]) => name !== 'key' && typeof value !== 'function' && value !== false && value != null)
-    .map(([name, value]) => (value === true ? ` ${name}` : ` ${name}="${escapeAttr(value)}"`))
+    // 값이 true 이거나 빈 문자열이면 disabled="" 대신 disabled 처럼 이름만 출력 (사람이 읽기 쉽게, 파싱 결과는 동일)
+    .map(([name, value]) => (value === true || value === '' ? ` ${name}` : ` ${name}="${escapeAttr(value)}"`))
     .join('');
   const open = `<${vnode.type}${attrs}>`;
   const close = `</${vnode.type}>`;
@@ -44,9 +45,14 @@ export function vnodeToHTML(vnode, depth = 0) {
   // 자식 없음: <div></div>
   if (vnode.children.length === 0) return pad + open + close;
 
-  // 자식이 텍스트뿐: <p>안녕</p> 한 줄로
-  if (vnode.children.every((child) => child.type === TEXT)) {
-    return pad + open + vnode.children.map((child) => escapeText(child.text)).join('') + close;
+  // 자식 중에 텍스트가 하나라도 있으면 한 줄로: <p>안녕</p>, <p>안녕 <b>세상</b></p>
+  //  - 텍스트와 태그가 섞인 경우 줄바꿈/들여쓰기를 넣으면 텍스트 앞뒤에 공백이 생겨
+  //    다시 파싱했을 때 내용이 달라지므로(왕복 불일치), 섞인 경우에도 한 줄로 출력합니다.
+  if (vnode.children.some((child) => child.type === TEXT)) {
+    const inline = vnode.children
+      .map((child) => (child.type === TEXT ? escapeText(child.text) : vnodeToHTML(child, 0)))
+      .join('');
+    return pad + open + inline + close;
   }
 
   // 그 외: 줄바꿈 + 들여쓰기

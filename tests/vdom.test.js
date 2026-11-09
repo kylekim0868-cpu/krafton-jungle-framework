@@ -57,3 +57,10 @@ describe('vnodeToHTML', () => {
     expect(vnodeToHTML(v)).toBe('<ul>\n  <li>a</li>\n  <li>b</li>\n</ul>');
   });
 });
+describe('vnodeToHTML - 텍스트와 태그가 섞인 경우', () => {
+  it('한 줄로 출력해서 왕복해도 텍스트가 바뀌지 않는다', () => {
+    const v1 = domToVNode(parse('<p>안녕 <b>세상</b> 끝</p>'));
+    expect(vnodeToHTML(v1)).toBe('<p>안녕 <b>세상</b> 끝</p>');
+    expect(domToVNode(parse(vnodeToHTML(v1)))).toEqual(v1);
+  });
+});
