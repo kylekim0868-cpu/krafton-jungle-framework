@@ -1,14 +1,6 @@
-# Mini React 아키텍처 초안
+# Mini React 구조
 
-아래 구조는 작업을 나누기 위한 설계 제안이다. 모듈 사이의 공개 계약은 구현에 앞서 해당 작업에서 확정한다.
-
-| 영역 | 책임 |
-| --- | --- |
-| `src/vdom/` | `domToVNode`로 DOM을 읽고 `createVNode`로 같은 형식의 VNode를 생성한다. `renderVNode`는 초기 DOM을 만들고, `diff`와 `patch`는 부분 갱신에 사용한다. |
-| `demos/phase1/` | 실제·편집 영역과 버튼을 연결한다. `history.js`는 저장한 상태와 현재 이력 위치를 관리한다. |
-| `src/component/` | 루트 `FunctionComponent`가 Hook 슬롯과 이전 VNode를 보관한다. 상태 변경 시 새 VNode를 얻어 공통 엔진에 전달한다. |
-| `demos/phase2/` | 루트 마운트와 클릭·입력 시나리오를 담당한다. |
-| `tests/unit/` · `tests/browser/` | 데이터·상태 계약과 실제 DOM 동작을 각각 검증한다. |
+모듈의 책임과 연결만 설명한다. 요구사항·작업 순서는 [requirements.md](requirements.md), 실행·검증은 [README](../README.md)가 원본이다.
 
 ```text
 Phase 1 편집 DOM → domToVNode ──┐
@@ -16,15 +8,33 @@ Phase 1 편집 DOM → domToVNode ──┐
 Phase 2 상태 변경 → 루트 렌더 ──┘
 ```
 
-## 첫 리뷰에서 정할 계약
+## 현재 소스와 책임
 
-- `domToVNode`의 입력 루트와 지원 노드, 요소·텍스트의 VNode 표현, 속성·텍스트·자식 순서 보존 범위
-- `diff`의 변경 목록과 자식 위치 기준, `patch`의 적용 순서와 루트 교체 시 반환값
-- 이력 초기 상태와 경계, 과거 상태에서 새로 Patch할 때 앞으로가기 이력 처리
-- 루트 Hook 슬롯의 순서, Effect 실행과 정리 시점, 의존성 비교, Memo 재계산
+| 위치 | 책임 | 현재 구현 상태 |
+| --- | --- | --- |
+| `src/vdom/domToVNode.js` | DOM을 요소·텍스트 VNode로 읽기 | 구현 있음. 원본 보존·문자열 속성·주석 제외 |
+| `src/vdom/renderVNode.js` | VNode로 새 DOM 만들기 | 구현 있음. 문서에 붙이는 일은 호출자가 담당 |
+| `src/vdom/createVNode.js` | 코드에서 같은 형식의 VNode 만들기 | 빈 파일 |
+| `src/vdom/diff.js`, `patch.js` | VNode 비교, 필요한 DOM 변경 | 빈 파일 |
+| `demos/phase1/main.js`, `history.js` | 실제·편집 영역 연결, 이력 저장·이동 | 초기화만 구현. 이력 파일은 비어 있고 Patch·이력 버튼은 비활성화 |
+| `src/component/FunctionComponent.js`, `hooks.js` | 루트의 이전 VNode·Hook 상태, mount·update | 빈 파일 |
+| `demos/phase2/` | 입력·클릭·Hooks 데모 | HTML·JS 파일 모두 비어 있음 |
+| `tests/unit/`, `tests/browser/` | 모듈 계약과 실제 DOM·사용자 흐름 검사 | 현재 P1-00 검사만 있음. 실행 결과와 사용자 이해는 별도로 확인 |
 
-P1-00 초기화에 필요한 VNode·입력 루트·지원 노드·편집 방식은 [결정 0001](decisions/0001-vnode-initialization.md)에 사용자 승인 근거와 함께 기록했다. 나머지 계약은 해당 작업에서 확정한다. 구현 파일이 있다는 사실과 요구사항 전체 수용은 구분한다.
+기존 VNode는 `{ kind: 'text', text }` 또는 `{ kind: 'element', tag, props, children }`다. `<p>안녕</p>`은 `p` 요소와 텍스트 자식으로 읽고 `renderVNode`가 각각 새 DOM을 만든다. 초기화 연결은 `demos/phase1/main.js`에서 볼 수 있다.
 
-## 개발 실행 환경
+## 기존 결정의 상태
 
-Node.js 기반 `http-server`는 저장소의 정적 파일을 제공하는 개발 도구다. VDOM 엔진과 화면 코드는 브라우저에서 실행하며 서버에 제품 로직을 두지 않는다. 환경 선택의 이유와 재현 방법은 [결정 0002](decisions/0002-node-development-server.md), 실제 실행법은 [README](../README.md)를 따른다.
+| 기록 | 유지할 상태와 읽을 시점 |
+| --- | --- |
+| [0001 · 초기화 계약](decisions/0001-vnode-initialization.md) | 승인된 요소·텍스트 범위와 변환·렌더 계약. P1-00·P1-01 작업 때 확인 |
+| [0002 · Node 개발 서버](decisions/0002-node-development-server.md) | 선택한 실행 환경의 근거. 환경 변경 때 확인 |
+| [0003 · Diff·Patch·이력 계약](decisions/0003-diff-patch-history-contract.md#항목별-승인-상태와-적용-단계) | 승인된 루트 방식, 검증 대기인 경로 보완안, 수용 대기인 비교·Patch·복구·이력 설계를 구분한다. P1-02·P1-03·P1-04마다 해당 계약만 확정하며 이력은 P1-04에서 연결 |
+
+문서 정리는 기존 설계안의 승인을 뜻하지 않는다. 중요한 설계는 해당 작업의 예시와 영향을 함께 보고 하나씩 결정한다.
+
+## Phase 2에서 결정할 것
+
+현재 `props`는 HTML 속성 문자열이며 `renderVNode`는 `setAttribute()`를 사용한다. Phase 2 진입 때 VNode 생성·자식 정규화, 함수형 컴포넌트 실행, 이벤트 등록·교체·제거, `value`·`checked` 같은 DOM 프로퍼티 반영과 setter 갱신 시점을 결정한다. Effect의 실행·정리와 Memo 의존성 비교는 각 Hook 작업에서 결정한다.
+
+상태와 Hooks는 루트에서만 사용하고 자식은 props만 사용하는 순수 함수다. Phase 1의 문자열 속성 변환을 유지하면서 공통 렌더·Patch를 확장하며 Phase 2 전용 Diff·Patch를 복제하지 않는다.
