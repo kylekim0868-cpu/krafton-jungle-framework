@@ -3,14 +3,19 @@ import { renderVNode } from '../../src/vdom/renderVNode.js';
 import { diff } from '../../src/vdom/diff.js';
 import { preparePatch } from '../../src/vdom/patch.js';
 import { createEditorKeyTracker } from './editorKeys.js';
+import { createHistory, recordHistory, moveHistory } from './history.js';
 
 // 패널 컨테이너는 화면의 책임이다. 공통 VDOM 엔진에 패널의 제목·버튼·편집 속성을 넣지 않는다.
 const actualArea = document.querySelector('#actual-area');
 const testArea = document.querySelector('#test-area');
 const status = document.querySelector('#app-status');
 const patchButton = document.querySelector('#patch-button');
+const backButton = document.querySelector('#back-button');
+const forwardButton = document.querySelector('#forward-button');
+const historyPosition = document.querySelector('#history-position');
 const editorKeys = createEditorKeyTracker(testArea);
-let currentVNode;
+let history;
+let locked = false;
 
 /**
  * 패널의 모든 콘텐츠를 고정 div VNode 아래 읽는다. UI 속성은 데이터에서 제외한다.
@@ -26,22 +31,57 @@ function prepareContent(vnode) {
   return Array.from(renderVNode(vnode).childNodes);
 }
 
-/** 복구도 실패한 경우 편집·Patch를 잠근다. 새로고침 전까지 성공 상태로 진행하지 않는다. */
+/** 이력의 양 끝 버튼과 현재 순번을 표시한다. 이 함수 자체는 이력을 확정하지 않는다. */
+function updateControls(nextHistory) {
+  backButton.disabled = nextHistory.index === 0;
+  forwardButton.disabled = nextHistory.index === nextHistory.entries.length - 1;
+  historyPosition.textContent = `이력 ${nextHistory.index + 1} / ${nextHistory.entries.length}`;
+}
+
+/** 복구도 실패한 경우 편집·세 버튼을 잠근다. 새로고침 전까지 진행하지 않는다. */
 function lock(message) {
+  locked = true;
   testArea.contentEditable = 'false';
   patchButton.disabled = true;
+  backButton.disabled = true;
+  forwardButton.disabled = true;
   status.textContent = message;
   status.dataset.state = 'locked';
   document.documentElement.dataset.appState = 'error';
 }
 
 /**
+ * 적용 중 실패하면 아직 확정하지 않은 후보를 버리고 마지막 저장 상태로 두 영역을 복구한다.
+ * 이력 배열·위치는 변경하지 않는다. 복구도 실패하면 모든 조작을 잠근다.
+ */
+function recover(operation, error) {
+  try {
+    const currentVNode = history.entries[history.index];
+    const actualContent = prepareContent(currentVNode);
+    const testContent = prepareContent(currentVNode);
+    actualArea.replaceChildren(...actualContent);
+    testArea.replaceChildren(...testContent);
+    editorKeys.remember();
+    updateControls(history);
+    status.textContent = `${operation} 적용 실패 · 두 영역을 마지막 확정 상태로 복구했습니다. 미확정 편집은 취소됐습니다.`;
+    status.dataset.state = 'recovered';
+  } catch (recoveryError) {
+    lock(`${operation} 복구 실패 · 편집과 모든 버튼을 잠갔습니다. 페이지를 새로고침해 주세요.`);
+    console.error('Phase 1 recovery failed:', recoveryError);
+  }
+  console.error(`Phase 1 ${operation} failed:`, error);
+}
+
+/**
  * 편집을 읽고 사전 검증·DOM 준비 후 실제 영역을 부분 갱신한다.
- * 두 영역 반영이 끝난 뒤에만 기준 VNode를 확정한다. 준비 오류는 편집을 유지하고,
- * 적용 중 오류는 두 영역을 마지막 확정 상태로 복구한다. 이력은 아직 저장하지 않는다.
+ * 두 영역 반영이 끝난 뒤에만 새 이력을 확정한다. 준비 오류는 편집을 유지하고,
+ * 적용 중 오류는 두 영역을 마지막 확정 상태로 복구한다. 무변경·실패는 이력을 보존한다.
  */
 function applyEdit() {
+  if (locked) return;
+  const currentVNode = history.entries[history.index];
   let nextVNode;
+  let candidate;
   let apply;
   let content;
   try {
@@ -53,7 +93,8 @@ function applyEdit() {
       status.dataset.state = 'unchanged';
       return;
     }
-    // 편집 영역 정규화와 Patch 모두 준비한 뒤 적용 단계로 넘어간다.
+    // 앞으로가기 기록을 자른 후보도 미리 만들되 실제 성공 전에는 대입하지 않는다.
+    candidate = recordHistory(history, nextVNode);
     content = prepareContent(nextVNode);
     apply = preparePatch(actualArea, changes);
   } catch (error) {
@@ -67,23 +108,48 @@ function applyEdit() {
     apply();
     testArea.replaceChildren(...content);
     editorKeys.remember();
-    currentVNode = nextVNode;
-    status.textContent = 'Patch 완료 · 편집 내용을 실제 영역에 반영했습니다. 이력 기능은 아직 연결되지 않았습니다.';
+    updateControls(candidate);
+    status.textContent = 'Patch 완료 · 편집 내용을 반영하고 이력에 저장했습니다.';
     status.dataset.state = 'success';
+    history = candidate;
   } catch (error) {
-    try {
-      const actualContent = prepareContent(currentVNode);
-      const testContent = prepareContent(currentVNode);
-      actualArea.replaceChildren(...actualContent);
-      testArea.replaceChildren(...testContent);
-      editorKeys.remember();
-      status.textContent = 'Patch 적용 실패 · 두 영역을 마지막 확정 상태로 복구했습니다. 미확정 편집은 취소됐습니다.';
-      status.dataset.state = 'recovered';
-    } catch (recoveryError) {
-      lock('Patch 복구 실패 · 편집과 Patch를 잠갔습니다. 페이지를 새로고침해 주세요.');
-      console.error('Phase 1 recovery failed:', recoveryError);
-    }
-    console.error('Phase 1 patch failed:', error);
+    recover('Patch', error);
+  }
+}
+
+/**
+ * 저장된 앞뒤 스냅샷을 새 DOM으로 두 영역에 복원한다. 미확정 편집은 읽거나 저장하지 않는다.
+ * 경계는 무변경이다. 준비 실패는 화면·편집·위치 유지, 적용 실패는 마지막 확정 상태로 복구한다.
+ * 두 영역과 버튼 반영 성공 후 위치만 확정하며 이동 자체는 새 이력을 만들지 않는다.
+ */
+function navigate(direction) {
+  if (locked) return;
+  let candidate;
+  let actualContent;
+  let testContent;
+  try {
+    candidate = moveHistory(history, direction);
+    if (candidate === history) return;
+    const target = candidate.entries[candidate.index];
+    // 한 영역만 바꾸고 렌더 오류가 나는 일을 막기 위해 양쪽 DOM을 먼저 준비한다.
+    actualContent = prepareContent(target);
+    testContent = prepareContent(target);
+  } catch (error) {
+    status.textContent = `이력 이동 준비 실패 · 화면과 편집 내용을 유지합니다. ${error.message}`;
+    status.dataset.state = 'error';
+    console.error('Phase 1 history preparation failed:', error);
+    return;
+  }
+  try {
+    actualArea.replaceChildren(...actualContent);
+    testArea.replaceChildren(...testContent);
+    editorKeys.remember();
+    updateControls(candidate);
+    status.textContent = '이력 이동 완료 · 저장된 화면을 복원했습니다. Patch 전 편집 내용은 저장하지 않습니다.';
+    status.dataset.state = 'restored';
+    history = candidate;
+  } catch (error) {
+    recover('이력 이동', error);
   }
 }
 
@@ -94,9 +160,12 @@ try {
   testArea.replaceChildren(...prepareContent(initialVNode));
   editorKeys.remember();
   testArea.addEventListener('input', editorKeys.handleInput);
-  currentVNode = initialVNode;
+  history = createHistory(initialVNode);
+  updateControls(history);
   patchButton.disabled = false;
   patchButton.addEventListener('click', applyEdit);
+  backButton.addEventListener('click', () => navigate(-1));
+  forwardButton.addEventListener('click', () => navigate(1));
   status.textContent = '초기화 완료 · 테스트 영역을 편집하고 Patch를 눌러 실제 영역에 반영하세요.';
   status.dataset.state = 'ready';
   document.documentElement.dataset.appState = 'ready';

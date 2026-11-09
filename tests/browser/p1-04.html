@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>P1-04 이력 검증</title>
+    <style>
+      body { font: 15px/1.6 system-ui, sans-serif; max-width: 1000px; margin: 32px auto; padding: 0 20px; }
+      [data-result="passed"] { color: #14613d; }
+      [data-result="failed"] { color: #b42318; }
+    </style>
+  </head>
+  <body>
+    <h1>P1-04 · 이력 모듈 검증</h1>
+    <p>순수 이력 검사 결과다. 실제 화면 이동·실패 복구 검사는 npm run verify에 포함된다.</p>
+    <p id="summary" role="status" data-state="running">검사 준비 중</p>
+    <ol id="results"></ol>
+    <script type="module">
+      import { historyTests } from '../unit/history.test.js';
+      const summary = document.querySelector('#summary');
+      let passed = 0;
+      let failed = 0;
+      // 모듈 로딩 실패는 running에 남고 개별 검사의 예외는 항목별로 표시한다.
+      for (const [name, run] of historyTests) {
+        const item = document.createElement('li');
+        try {
+          await run();
+          item.textContent = `통과: ${name}`;
+          item.dataset.result = 'passed';
+          passed += 1;
+        } catch (error) {
+          item.textContent = `실패: ${name} — ${error.message}`;
+          item.dataset.result = 'failed';
+          failed += 1;
+        }
+        document.querySelector('#results').appendChild(item);
+      }
+      summary.textContent = `통과 ${passed} / 실패 ${failed} / 전체 ${passed + failed}`;
+      summary.dataset.state = failed ? 'failed' : 'passed';
+      summary.dataset.passed = passed;
+      summary.dataset.failed = failed;
+    </script>
+  </body>
+</html>
