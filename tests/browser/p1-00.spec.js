@@ -17,14 +17,15 @@ async function requirePassingSuite(page, timeout = 10000) {
   }
   const summary = page.locator('#summary');
   const failures = await page.locator('[data-result="failed"]').allTextContents();
-  // 기존 단위 15개와 기능 5개를 모두 실행하도록 요구한다. 추가 시 기대 건수도 갱신한다.
+  // 변환·렌더 단위 27개와 초기화 기능 5개를 모두 실행하도록 요구한다.
+  // 추가 시 기대 건수도 갱신하여 검사 누락을 성공으로 판단하지 않는다.
   expect(await summary.getAttribute('data-state'), failures.join('\n')).toBe('passed');
-  await expect(summary).toHaveAttribute('data-passed', '20');
+  await expect(summary).toHaveAttribute('data-passed', '32');
   await expect(summary).toHaveAttribute('data-failed', '0');
-  await expect(page.locator('#results > li')).toHaveCount(20);
+  await expect(page.locator('#results > li')).toHaveCount(32);
 }
 
-test('P1-00 / 기존 DOM 단위·초기화 기능 20개가 통과한다', async ({ page }) => {
+test('P1-00·P1-01 / DOM 변환·렌더와 초기화 검사 32개가 통과한다', async ({ page }) => {
   const errors = [];
   page.on('pageerror', (error) => errors.push(error.message));
   await page.goto('/tests/browser/p1-00.html');

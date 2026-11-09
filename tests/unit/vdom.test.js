@@ -130,4 +130,164 @@ export const vdomTests = [
       throwsTypeError(() => renderVNode(vnode));
     }
   }],
+  ['P1-01 / 대표 입력의 변환 결과와 새 DOM이 계약에 맞는다', () => {
+    const source = fixture('<p class="note">안녕</p>');
+    const vnode = domToVNode(source);
+    equal(vnode, {
+      kind: 'element', tag: 'p', props: { class: 'note' },
+      children: [{ kind: 'text', text: '안녕' }],
+    });
+    const rendered = renderVNode(vnode);
+    assert(rendered.isEqualNode(source), 'Representative round trip changed structure.');
+    assert(rendered !== source && rendered.firstChild !== source.firstChild, 'Source nodes were reused.');
+    assert(rendered.parentNode === null, 'Renderer mounted the result.');
+  }],
+  ['P1-01 / HTML 엔티티는 DOM에서 읽은 실제 문자로 보존한다', () => {
+    // 원래 HTML 표기법이 아니라 브라우저가 해석한 속성·텍스트 문자열을 저장한다.
+    const source = fixture('<p title="A &amp; &quot;B&quot;">&lt;b&gt;&amp;&nbsp;한글 😀</p>');
+    const vnode = domToVNode(source);
+    equal(vnode.props, { title: 'A & "B"' });
+    equal(vnode.children, [{ kind: 'text', text: '<b>&\u00a0한글 😀' }]);
+    const rendered = renderVNode(vnode);
+    assert(rendered.isEqualNode(source) && rendered.children.length === 0, 'Characters became markup.');
+  }],
+  ['P1-01 / 빈 텍스트 루트와 연속된 텍스트 노드를 합치지 않는다', () => {
+    const empty = domToVNode(document.createTextNode(''));
+    equal(empty, { kind: 'text', text: '' });
+    const emptyDOM = renderVNode(empty);
+    assert(emptyDOM.nodeType === 3 && emptyDOM.data === '', 'Empty text root was lost.');
+
+    // HTML 직렬화만 비교하면 연속 텍스트의 경계가 사라져도 발견할 수 없다.
+    const source = document.createElement('p');
+    source.append(document.createTextNode('A'), document.createTextNode(''), document.createTextNode('B'));
+    const vnode = domToVNode(source);
+    equal(vnode.children, [
+      { kind: 'text', text: 'A' }, { kind: 'text', text: '' }, { kind: 'text', text: 'B' },
+    ]);
+    const rendered = renderVNode(vnode);
+    assert(rendered.childNodes.length === 3 && rendered.isEqualNode(source), 'Text node boundaries changed.');
+  }],
+  ['P1-01 / 같은 태그의 형제도 공백·텍스트와 함께 순서를 보존한다', () => {
+    const source = fixture('<div> <b data-id="a">A</b>\n<b data-id="b">B</b> 끝</div>');
+    equal(domToVNode(source).children, [
+      { kind: 'text', text: ' ' },
+      { kind: 'element', tag: 'b', props: { 'data-id': 'a' }, children: [{ kind: 'text', text: 'A' }] },
+      { kind: 'text', text: '\n' },
+      { kind: 'element', tag: 'b', props: { 'data-id': 'b' }, children: [{ kind: 'text', text: 'B' }] },
+      { kind: 'text', text: ' 끝' },
+    ]);
+    assert(renderVNode(domToVNode(source)).isEqualNode(source), 'Sibling order changed.');
+  }],
+  ['P1-01 / 중첩 template의 텍스트·공백은 보존하고 주석만 제외한다', () => {
+    const source = fixture('<template> 앞<!-- 제외 --><template><b>B</b></template> 뒤 </template>');
+    const original = source.innerHTML;
+    const originalNodes = Array.from(source.content.childNodes);
+    const vnode = domToVNode(source);
+    equal(vnode, {
+      kind: 'element', tag: 'template', props: {}, children: [
+        { kind: 'text', text: ' 앞' },
+        { kind: 'element', tag: 'template', props: {}, children: [
+          { kind: 'element', tag: 'b', props: {}, children: [{ kind: 'text', text: 'B' }] },
+        ] },
+        { kind: 'text', text: ' 뒤 ' },
+      ],
+    });
+    const rendered = renderVNode(vnode);
+    assert(rendered.childNodes.length === 0 && rendered.content.childNodes.length === 3, 'Wrong template container.');
+    const nested = rendered.content.childNodes[1];
+    assert(nested.content.firstChild.firstChild.data === 'B', 'Nested template text was lost.');
+    assert(source.innerHTML === original, 'Source template content changed.');
+    assert(originalNodes.every((node, index) => source.content.childNodes[index] === node), 'Source template nodes changed.');
+    equal(domToVNode(rendered), vnode);
+  }],
+  ['P1-01 / 빈 template과 주석만 있는 template을 빈 children으로 읽는다', () => {
+    for (const html of ['<template></template>', '<template><!-- 유지할 원본 주석 --></template>']) {
+      const source = fixture(html);
+      const original = source.innerHTML;
+      const vnode = domToVNode(source);
+      equal(vnode, { kind: 'element', tag: 'template', props: {}, children: [] });
+      assert(renderVNode(vnode).content.childNodes.length === 0, 'Empty template gained children.');
+      assert(source.innerHTML === original, 'Reading removed source comments.');
+    }
+  }],
+  ['P1-01 / 변환된 VNode와 원본 DOM은 양방향으로 독립적이다', () => {
+    const source = fixture('<p class="before"><b>원본</b></p>');
+    const first = domToVNode(source);
+    source.setAttribute('class', 'after');
+    source.firstChild.firstChild.data = 'DOM 수정';
+    assert(first.props.class === 'before' && first.children[0].children[0].text === '원본', 'VNode retained live DOM data.');
+
+    const second = domToVNode(source);
+    second.props.class = 'VNode 수정';
+    second.children[0].children[0].text = 'VNode 수정';
+    second.children.push({ kind: 'text', text: '추가' });
+    assert(source.className === 'after' && source.textContent === 'DOM 수정', 'VNode mutation changed source.');
+    assert(source.childNodes.length === 1, 'VNode children shared the DOM child list.');
+    assert(first !== second && first.props !== second.props && first.children !== second.children, 'Conversions shared data objects.');
+  }],
+  ['P1-01 / 렌더링은 동결된 VNode를 변경하지 않고 매번 새 노드를 만든다', () => {
+    const vnode = domToVNode(fixture('<div data-id="a"><template><b>B</b></template> 끝</div>'));
+    // 입력 전체를 동결해 깊은 곳의 속성·자식 수정도 예외로 드러낸다.
+    function freezeTree(node) {
+      if (node.kind === 'element') {
+        Object.freeze(node.props);
+        node.children.forEach(freezeTree);
+        Object.freeze(node.children);
+      }
+      Object.freeze(node);
+    }
+    freezeTree(vnode);
+    const before = JSON.stringify(vnode);
+    const first = renderVNode(vnode);
+    const second = renderVNode(vnode);
+    assert(first.isEqualNode(second) && first !== second, 'Renders reused the same root.');
+    const firstText = first.firstChild.content.firstChild.firstChild;
+    const secondText = second.firstChild.content.firstChild.firstChild;
+    assert(firstText !== secondText, 'Renders shared nested template nodes.');
+    firstText.data = '수정';
+    assert(secondText.data === 'B' && JSON.stringify(vnode) === before, 'Rendering or editing changed input data.');
+  }],
+  ['P1-01 / 폼의 현재 프로퍼티가 아닌 HTML 속성을 읽는다', () => {
+    const source = fixture('<div><input type="text" value="initial"><input type="checkbox" checked></div>');
+    const [textInput, checkbox] = source.children;
+    // 텍스트 입력의 value와 체크박스의 checked는 현재 상태를 HTML 속성과 분리해 바꿀 수 있다.
+    // 체크박스의 value는 속성도 바꾸므로 이 경계의 검사 입력으로 사용하지 않는다.
+    textInput.value = '사용자가 입력한 값';
+    checkbox.checked = false;
+    const vnode = domToVNode(source);
+    equal(vnode.children[0].props, { type: 'text', value: 'initial' });
+    equal(vnode.children[1].props, { type: 'checkbox', checked: '' });
+    const rendered = renderVNode(vnode);
+    assert(rendered.children[0].value === 'initial' && rendered.children[1].checked === true, 'Renderer copied live form properties.');
+    assert(textInput.value === '사용자가 입력한 값' && checkbox.checked === false, 'Source form state changed.');
+  }],
+  ['P1-01 / MathML·다른 네임스페이스·속성·doctype 노드는 거부한다', () => {
+    for (const node of [
+      document.createElementNS('http://www.w3.org/1998/Math/MathML', 'math'),
+      document.createElementNS('urn:unsupported', 'item'),
+      document.createAttribute('title'), document.doctype,
+    ]) throwsTypeError(() => domToVNode(node));
+    throwsTypeError(() => domToVNode(fixture('<div><math><mi>x</mi></math></div>')));
+  }],
+  ['P1-01 / 중첩된 지원 밖 입력에서 실패해도 원본 전체를 보존한다', () => {
+    const source = fixture('<div>앞<b>B</b><template>안<svg></svg>뒤</template>끝</div>');
+    const original = source.outerHTML;
+    const nodes = Array.from(source.childNodes);
+    const templateNodes = Array.from(source.querySelector('template').content.childNodes);
+    throwsTypeError(() => domToVNode(source));
+    assert(source.outerHTML === original, 'Failed conversion changed source structure.');
+    assert(nodes.every((node, index) => source.childNodes[index] === node), 'Failed conversion replaced source nodes.');
+    const content = source.querySelector('template').content;
+    assert(templateNodes.every((node, index) => content.childNodes[index] === node), 'Failed conversion changed template nodes.');
+  }],
+  ['P1-01 / 다른 문서의 HTML을 읽고 현재 문서에 독립적인 DOM을 만든다', () => {
+    const otherDocument = document.implementation.createHTMLDocument('입력 문서');
+    otherDocument.body.innerHTML = '<p class="note">다른 문서</p>';
+    const source = otherDocument.body.firstChild;
+    const original = source.outerHTML;
+    const rendered = renderVNode(domToVNode(source));
+    assert(rendered.ownerDocument === document && source.ownerDocument === otherDocument, 'Wrong owner document.');
+    assert(rendered.isEqualNode(source) && rendered !== source, 'Cross-document conversion failed.');
+    assert(source.parentNode === otherDocument.body && source.outerHTML === original, 'Source document changed.');
+  }],
 ];
