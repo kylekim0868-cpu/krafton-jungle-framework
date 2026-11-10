@@ -27,6 +27,6 @@ export { StateHistory, MAX_HISTORY_SIZE } from './history/stateHistory.js';
 
 // Phase 2: Component + Hooks
 export { FunctionComponent, mountRoot } from './core/functionComponent.js';
-export { useState } from './core/hooks.js';
+export { useState, useEffect, useMemo } from './core/hooks.js';
 export { resolveVNode } from './core/resolveVNode.js';
 export { flushUpdates } from './core/scheduler.js';
