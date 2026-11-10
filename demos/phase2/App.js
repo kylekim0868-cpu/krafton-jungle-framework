@@ -1,18 +1,23 @@
 import { createVNode as h } from '../../src/vdom/createVNode.js';
 import { useState, useEffect, useMemo } from '../../src/component/hooks.js';
 
+export const AUTO_INCREMENT_INTERVAL_MS = 1000;
+
 /** 자식은 부모가 넘긴 값과 이벤트 함수만 사용한다. */
-function Counter({ count, doubled, onIncrement }) {
+function Counter({ count, doubled, onIncrement, onSameValue }) {
   return h('section', { 'data-counter': '' },
     h('p', { 'data-count': '' }, count),
     h('p', { 'data-double': '' }, `두 배 값 · ${doubled}`),
-    h('button', { id: 'update-button', type: 'button', onClick: onIncrement }, '숫자 +1 · update()'));
+    h('div', { class: 'counter-actions' },
+      h('button', { id: 'update-button', type: 'button', onClick: onIncrement }, '숫자 +1 · update()'),
+      h('button', { id: 'same-value-button', type: 'button', onClick: onSameValue }, '같은 숫자 다시 설정')));
 }
 
 /** 루트의 세 Hook으로 입력·카운터·외부 작업을 연결하고 공통 VNode를 반환한다. */
 export function App({ onEffect = () => {} }) {
   const [count, setCount] = useState(0);
   const [name, setName] = useState('미니 리액트');
+  const [isAutoIncrement, setAutoIncrement] = useState(false);
   const doubled = useMemo(() => count * 2, [count]);
 
   useEffect(() => {
@@ -30,12 +35,28 @@ export function App({ onEffect = () => {} }) {
     };
   }, [count, name]);
 
+  // YJ 타이머 예시의 동작을 YM Effect 계약으로 이식한다. count가 바뀌어도 타이머는 재등록하지 않는다.
+  useEffect(() => {
+    if (!isAutoIncrement) return;
+    const timer = setInterval(() => setCount((value) => value + 1), AUTO_INCREMENT_INTERVAL_MS);
+    onEffect('타이머 실행 · 1초마다 +1');
+    return () => {
+      clearInterval(timer);
+      onEffect('타이머 정리 · 자동 증가 중지');
+    };
+  }, [isAutoIncrement]);
+
   return h('article', { 'data-component': 'app' },
     h('h2', {}, '루트 컴포넌트'),
     h('label', { class: 'name-field' }, '이름',
       h('input', { id: 'name-input', type: 'text', value: name,
         onInput: (event) => setName(event.currentTarget.value) })),
     h('p', { 'data-greeting': '' }, `안녕하세요, ${name || '(빈 값)'}!`),
-    h(Counter, { count, doubled, onIncrement: () => setCount((value) => value + 1) }),
+    h(Counter, { count, doubled, onIncrement: () => setCount((value) => value + 1),
+      onSameValue: () => setCount(count) }),
+    h('label', { class: 'auto-toggle' },
+      h('input', { id: 'auto-increment', type: 'checkbox', checked: isAutoIncrement,
+        onChange: (event) => setAutoIncrement(event.currentTarget.checked) }),
+      '1초마다 자동 +1 · 끄거나 해제하면 타이머 정리'),
     h('p', {}, '숫자를 바꿔도 이 문단과 제목의 DOM은 유지됩니다.'));
 }

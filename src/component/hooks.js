@@ -3,9 +3,9 @@ let activeFrame = null;
 let renderDepth = 0;
 
 /** 루트 렌더의 Hook 슬롯 후보와 호출 수를 반환한다. 확정은 DOM 반영 이후 호출자가 맡는다. */
-export function renderWithHooks(render, hooks, scheduleState) {
+export function renderWithHooks(render, hooks, scheduleState, metrics = { memoCount: 0 }) {
   const previous = activeFrame;
-  const frame = { hooks, index: 0, scheduleState };
+  const frame = { hooks, index: 0, scheduleState, metrics };
   activeFrame = frame;
   renderDepth += 1;
   try {
@@ -66,6 +66,8 @@ export function useMemo(calculate, deps) {
   const nextDeps = dependencies(deps);
   const { frame, index, previous } = frameFor('memo');
   if (!previous || !sameDependencies(previous.deps, nextDeps)) {
+    // 상태나 캐시 값을 건드리지 않고 실제 계산 호출 횟수만 관찰한다.
+    frame.metrics.memoCount += 1;
     frame.hooks[index] = { kind: 'memo', deps: nextDeps, value: withoutHooks(calculate) };
   }
   return frame.hooks[index].value;

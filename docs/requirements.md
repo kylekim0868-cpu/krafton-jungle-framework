@@ -71,3 +71,9 @@ KJF-27에서 사용자가 선택한 범위에 따라 입력·클릭·세 Hook·�
 State 슬롯·함수 초기값·함수형 setter·동일 값, Memo 재사용·의존성 복사·Object.is 비교, Effect 실행 시점·정리 순서·의존성 생략과 빈 배열·Effect 안의 setter, 호출 제한·잘못된 입력·후보 폐기·부분 적용 복구·Effect 오류 후 확정 상태 보존을 검사한다. 이벤트 교체·제거, value·checked, select 구조 변경, 실제 입력 중 DOM·초점·선택 범위 보존과 해제 후 구독 정리를 포함한다.
 
 계약은 [P2-02 Hooks·런타임 확장](architecture.md#p2-02-hooks런타임-확장-계약)을 따른다. Chromium 자동 입력과 한글 IME의 수동 조합 입력 확인은 구분하며, 실행 결과·사용자 이해·수용 여부는 작업 보고에 기록한다.
+
+## KJF-28 YM·YJ 통합 검증 연결
+
+P2-02~06과 Q-01·Q-02의 관찰 기능을 확장한다. `tests/unit/diagnostics.test.js`의 8개를 `tests/browser/integration.html`에서 실제 DOM으로 실행하고 `integration.spec.js`의 Playwright 4개가 모듈 결과·이름/숫자/동일 값의 계산 차이·가상 시계의 타이머 정리·로그 상한·320/390px 배치를 검사한다.
+
+진단 정보의 불변성, 이벤트 명령과 DOM 기록의 분리, 진단 콜백 오류·재진입, 실패한 렌더와 성공 반영의 구분, 부분 쓰기 실패 복구 후 observer 종료·재시도, Effect 오류 후 확정 상태, 관측 실패의 미측정 처리를 포함한다. 기존 Phase 1과 P2-01·02 회귀도 함께 실행한다. 원본 출처와 지원 범위는 [README의 선별 통합](../README.md#ym-yj-선별-통합)과 [관찰 계약](architecture.md#ym-yj-통합-관찰-계약)을 따른다. 실행 결과·사용자 수용·게시 상태는 별도 작업 보고로 구분한다.

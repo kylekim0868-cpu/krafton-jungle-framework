@@ -4,6 +4,7 @@ import { renderVNode } from '../vdom/renderVNode.js';
 import { diff } from '../vdom/diff.js';
 import { preparePatch } from '../vdom/patch.js';
 import { renderWithHooks, flushEffects, cleanupEffects } from './hooks.js';
+import { measureCommit, reportCommit } from './commitDiagnostics.js';
 
 /**
  * VNode 하나를 반환하는 루트 함수를 감싸고 마지막으로 반영한 트리를 보관한다.
@@ -23,34 +24,53 @@ export class FunctionComponent {
   #hookCount = null;
   #pendingState = null;
   #flushingEffects = false;
+  #onCommit;
+  #renderCount = 0;
+  #commitCount = 0;
+  #memoCount = 0;
 
-  /** render(props)는 매번 기존 계약의 요소 또는 텍스트 VNode 하나를 반환해야 한다. */
-  constructor(render, props = {}) {
+  /** render는 VNode 하나를 반환한다. 선택 onCommit은 성공한 반영을 관찰하며 렌더 정책을 바꾸지 않는다. */
+  constructor(render, props = {}, { onCommit } = {}) {
     if (typeof render !== 'function') throw new TypeError('A root render function is required.');
+    if (onCommit !== undefined && typeof onCommit !== 'function') throw new TypeError('onCommit must be a function.');
     this.#render = render;
     this.#props = props;
     this.hooks = [];
+    this.#onCommit = onCommit;
   }
 
   // 렌더 함수가 반환 객체를 다음 호출에서 수정해도 이전 화면의 비교 기준은 유지한다.
   #evaluate(props) {
     const hooks = this.hooks.map((hook) => ({ ...hook }));
     if (this.#pendingState) hooks[this.#pendingState.index].value = this.#pendingState.value;
-    const rendered = renderWithHooks(() => this.#render(props), hooks,
-      (index, action) => this.#setHookState(index, action));
+    const metrics = { memoCount: 0 };
+    let rendered;
+    this.#renderCount += 1;
+    try {
+      rendered = renderWithHooks(() => this.#render(props), hooks,
+        (index, action) => this.#setHookState(index, action), metrics);
+    } finally {
+      // 실패한 렌더에서 실행된 계산도 센다. 성공한 commit 횟수와 구분한다.
+      this.#memoCount += metrics.memoCount;
+    }
     if (this.#hookCount !== null && rendered.count !== this.#hookCount) throw new Error('Hook count changed.');
     assertVNode(rendered.vnode);
     return { ...rendered, vnode: copyVNode(rendered.vnode) };
   }
 
   // 실패한 렌더의 Hook 후보는 버린다. 배열 참조는 유지해 인스턴스의 저장소 수명을 보존한다.
-  #commit(rendered, props) {
+  #commit(rendered, props, changes, isInitial, measurement) {
     this.hooks.splice(0, this.hooks.length, ...rendered.hooks);
     this.#hookCount = rendered.count;
     this.#vnode = rendered.vnode;
     this.#props = props;
+    this.#commitCount += 1;
     this.#flushingEffects = true;
-    try { flushEffects(this.hooks); } finally { this.#flushingEffects = false; }
+    try { flushEffects(this.hooks); } finally {
+      this.#flushingEffects = false;
+      reportCommit(this.#onCommit, { renderCount: this.#renderCount, commitCount: this.#commitCount,
+        memoCount: this.#memoCount }, changes, isInitial, measurement);
+    }
   }
 
   #setHookState(index, action) {
@@ -91,8 +111,10 @@ export class FunctionComponent {
       const rendered = this.#evaluate(this.#props);
       const root = renderVNode(rendered.vnode);
       const previousContent = Array.from(container.childNodes);
+      let measurement;
       try {
-        container.replaceChildren(root);
+        if (this.#onCommit) measurement = measureCommit(container, () => container.replaceChildren(root));
+        else container.replaceChildren(root);
       } catch (error) {
         try {
           container.replaceChildren(...previousContent);
@@ -105,7 +127,7 @@ export class FunctionComponent {
       this.#container = container;
       this.#root = root;
       this.#mounted = true;
-      this.#commit(rendered, this.#props);
+      this.#commit(rendered, this.#props, [], true, measurement);
       return root;
     } finally {
       this.#busy = false;
@@ -130,11 +152,16 @@ export class FunctionComponent {
       }
       const rendered = this.#evaluate(nextProps);
       const changes = diff(this.#vnode, rendered.vnode);
+      let measurement;
       // 무변경이어도 props는 다음 렌더링에 쓰므로 성공한 입력으로 확정한다.
       if (changes.length) {
+        // 검증·준비 오류는 기존처럼 복구 쓰기 없이 전달한다. 관측 시간은 적용 구간만 잰다.
         const apply = preparePatch(this.#root, changes);
         try {
-          this.#root = apply();
+          if (this.#onCommit) {
+            measurement = measureCommit(this.#container, apply);
+            this.#root = measurement.value;
+          } else this.#root = apply();
         } catch (error) {
           try {
             const restored = renderVNode(this.#vnode);
@@ -147,7 +174,10 @@ export class FunctionComponent {
           throw error;
         }
       }
-      this.#commit(rendered, nextProps);
+      // 변경 명령이 없는 명시적 update는 관측 기록 0건인 성공 반영이다.
+      if (!changes.length && this.#onCommit) measurement = { durationMs: 0,
+        mutations: Object.freeze({ total: 0, childList: 0, attributes: 0, characterData: 0 }) };
+      this.#commit(rendered, nextProps, changes, false, measurement);
       return this.#root;
     } finally {
       this.#busy = false;

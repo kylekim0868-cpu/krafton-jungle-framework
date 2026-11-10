@@ -1,5 +1,6 @@
 import { FunctionComponent } from '../../src/component/FunctionComponent.js';
 import { App } from './App.js';
+import { createCommitReporter } from './diagnostics.js';
 
 const container = document.querySelector('#component-root');
 const unmountButton = document.querySelector('#unmount-button');
@@ -13,7 +14,7 @@ function reportEffect(message) {
   while (log.children.length > 12) log.firstChild.remove();
 }
 
-const component = new FunctionComponent(App, { onEffect: reportEffect });
+const component = new FunctionComponent(App, { onEffect: reportEffect }, { onCommit: createCommitReporter() });
 try {
   component.mount(container);
   unmountButton.disabled = false;

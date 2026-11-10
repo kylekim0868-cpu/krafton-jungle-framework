@@ -66,3 +66,17 @@ KJF-27은 사용자가 선택한 전체 통합 범위에 따라 P2-02와 선행 
 - `unmount()`는 콘텐츠를 제거하고 Effect를 한 번 정리한다. 해제 후의 오래된 setter와 대기 중인 setter는 화면을 바꾸지 않는다. 같은 인스턴스의 재마운트는 지원하지 않는다. 정리 오류가 나도 나머지 자원은 정리한다.
 
 Effect 오류 전파·동기 setter·마이크로태스크 예약은 이번 미니 구현의 계약이다. 실제 React의 모든 스케줄링 동작을 구현한 것으로 해석하지 않는다. 지원하지 않는 동작은 Fragment·Context·중첩 상태 컴포넌트·자동 Batching이며, SVG·MathML과 폼 선택 범위의 이력 복원도 기존 지원 범위 밖이다.
+
+## YM YJ 통합 관찰 계약
+
+KJF-28은 팀원과 합의한 방향을 전달한 사용자의 구현 요청에 따른 선별 통합이다. 기준 커밋과 채택 출처는 [README](../README.md#ym-yj-선별-통합)에 모은다. YJ의 VNode·key·Patch 루트와 State 선확정 구조를 복사하지 않고, YM 계약으로 관찰 기능을 연결한다.
+
+- `new FunctionComponent(render, props, { onCommit })`의 세 번째 인자는 선택이다. 기존 두 인자 호출은 유지한다. 콜백은 DOM·Hooks 확정과 Effect 처리 후 실행하며 Effect가 예외를 던져도 성공한 반영 진단을 전달한다.
+- 전달값은 `{ renderCount, commitCount, memoCount, isInitial, changes, durationMs, mutations }`다. 루트·Memo 실행 수는 실패한 호출도 포함하고 commit 수는 DOM·Hooks 확정 때만 늘어난다. 같은 값 setter는 렌더와 콜백을 생략한다. 변경 없는 명시적 update는 성공한 반영으로 세고 변경·관측 0건을 전달한다.
+- `changes`는 type·이전 트리 path·parentPath·index만 복사한 읽기 전용 배열이다. VNode·함수·Hook 저장소는 노출하지 않는다. EVENTS는 이벤트 처리 명령이며 MutationRecord를 만들지 않을 수 있다.
+- 관측은 onCommit을 사용하는 인스턴스의 DOM 삽입·적용 구간에서만 수행한다. `commitDiagnostics.js`가 observer를 성공·실패 모두 finally에서 종료한다. 복구 기록·Effect·진단 패널 쓰기는 성공한 적용의 관측 수에 포함하지 않는다. 관측 등록·조회 실패는 `mutations: null`로 분리한다.
+- `mutations`는 total·childList·attributes·characterData별 MutationRecord 수다. DOM API 호출·폼 value/checked 대입·이벤트 등록·Reflow·Repaint 수가 아니다. `durationMs`는 적용 구간의 JS 경과 시간이며 Diff·preparePatch·Effect·layout/paint는 포함하지 않는다.
+- onCommit은 관찰 전용이다. 호출 중 재진입·setter는 기존 busy 검사로 거부하며 콜백 예외는 경고로 분리해 성공한 화면·State를 되돌리지 않는다. 콜백 내부의 임의 외부 부작용까지 복구하지는 않는다.
+- `useMemo`는 계산 함수를 호출할 때 Hook 프레임의 계수만 증가시킨다. 캐시 값·의존성 비교·순수 계산 계약은 바꾸지 않는다. 데모는 이 계수를 DOM 바깥 로그에 표시해 루트 재렌더와 Memo 재계산을 비교한다.
+- 데모 자동 증가의 상태는 루트에 두며 Effect 의존성은 `[isAutoIncrement]`다. 카운트 변경으로 타이머를 재등록하지 않고 함수형 setter를 사용한다. 끄기·unmount 시 interval을 해제한다. 일반 이벤트의 동기 갱신과 기존 제목·단축키 Effect는 유지한다.
+- 데모 로그는 반영 30개·Effect 12개로 제한한다. 기존 디자인과 입력 DOM 참조·초점·선택 범위를 보존한다. Batching·proxy·이력 상한은 별도 검토 대상으로 남긴다.
