@@ -1,0 +1,26 @@
+.page-nav a { color: var(--primary); text-decoration: none; font-size: 14px; }
+
+.app { display: grid; gap: 12px; }
+
+.card { border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; }
+.card h3 { margin: 0 0 8px; font-size: 14px; }
+.card .row { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+
+.count { font-size: 32px; font-weight: 700; font-variant-numeric: tabular-nums; min-width: 64px; }
+.count.negative { color: var(--remove); }
+
+.text-input {
+  font: inherit;
+  padding: 7px 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  min-width: 0;
+  flex: 1;
+}
+
+.todo-list { list-style: none; margin: 8px 0 0; padding: 0; }
+.todo-item { display: flex; gap: 8px; align-items: center; padding: 4px 0; }
+.todo-item.done span { text-decoration: line-through; color: var(--muted); }
+.todo-item button { margin-left: auto; padding: 2px 8px; font-size: 12px; }
+
+.footer-note { color: var(--muted); font-size: 12px; margin: 6px 0 0; }

@@ -52,6 +52,8 @@ button:disabled { opacity: 0.4; cursor: not-allowed; }
 button.primary { background: var(--primary); border-color: var(--primary); color: #fff; font-weight: 600; }
 .link-button { border: none; background: none; color: var(--primary); padding: 0; margin-left: auto; }
 
+.page-link { color: var(--primary); text-decoration: none; font-size: 14px; margin-left: 4px; }
+
 .history-label { font-family: var(--mono); color: var(--muted); min-width: 56px; text-align: center; }
 
 kbd {

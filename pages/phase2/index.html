@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Phase 2 · Component &amp; useState</title>
+  <link rel="stylesheet" href="../phase1/style.css">
+  <link rel="stylesheet" href="./style.css">
+</head>
+<body>
+  <header class="page-header">
+    <div>
+      <h1>Component · State · useState</h1>
+      <p class="subtitle">상태가 바뀌면 루트 컴포넌트가 다시 실행되고, Phase 1 의 diff/patch 로 바뀐 부분만 반영됩니다.</p>
+    </div>
+    <nav class="page-nav"><a href="../phase1/">← Phase 1</a></nav>
+  </header>
+
+  <main class="panels">
+    <section class="panel">
+      <div class="panel-header"><h2>앱 (루트 컴포넌트)</h2></div>
+      <div id="app"></div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-header">
+        <h2>렌더링 로그</h2>
+        <span id="render-stats" class="hint"></span>
+      </div>
+      <ol id="commit-log" class="patch-log"></ol>
+    </section>
+  </main>
+
+  <script type="module">
+    import { setupPhase2Page } from './phase2Page.js';
+    setupPhase2Page(document);
+  </script>
+</body>
+</html>
