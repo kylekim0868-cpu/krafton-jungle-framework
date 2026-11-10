@@ -20,10 +20,15 @@ let isFlushScheduled = false;
  * 컴포넌트 업데이트를 예약합니다. 같은 틱 안의 여러 요청은 한 번의 렌더링으로 합쳐집니다.
  */
 export function scheduleUpdate(component) {
-  dirtyComponents.add(component);
-  if (isFlushScheduled) return;
-  isFlushScheduled = true;
-  queueMicrotask(flushUpdates);
+  dirtyComponents.add(component); // 1. 장부에 "이 컴포넌트 다시 그려야 함" 등록
+  if (isFlushScheduled) return; // 2. 이미 기사님(flushUpdates)을 불렀다면 그냥 통과
+  isFlushScheduled = true; // 3. 기사님 호출 플래그 켜기
+  queueMicrotask(flushUpdates);  // 4. 자바스크립트 마이크로태스크 큐에 작업 예약
+  /*
+    queueMicrotask는 브라우저 이벤트 루프 API입니다.
+    지금 실행 중인 자바스크립트 코드(사용자의 클릭 이벤트 핸들러)가 완전히 끝나자마자 
+    브라우저가 화면을 그리기 직전의 그 찰나의 순간에 flushUpdates를 실행해라!라는 뜻입니다.
+  */
 }
 
 /**
@@ -32,10 +37,10 @@ export function scheduleUpdate(component) {
  *  - 렌더링 도중 다시 setState 가 호출되면(예: Day 5 의 useEffect) 다음 마이크로태스크로 다시 예약됩니다.
  */
 export function flushUpdates() {
-  isFlushScheduled = false;
-  const components = [...dirtyComponents];
-  dirtyComponents.clear();
-  for (const component of components) {
-    if (component.isMounted) component.update();
+  isFlushScheduled = false; // 1. 예약 스위치 리셋 (다음 예약을 받을 수 있게)
+  const components = [...dirtyComponents]; // 2. 장부에 적힌 컴포넌트들을 복사해옴
+  dirtyComponents.clear();  // 3. 원래 장부는 깨끗이 비움
+  for (const component of components) { 
+    if (component.isMounted) component.update();  // 4. 컴포넌트의 update()를 딱 1번만 실행!
   }
 }

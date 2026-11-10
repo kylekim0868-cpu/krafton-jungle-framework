@@ -20,12 +20,16 @@ let childRenderDepth = 0; // 자식(Stateless) 컴포넌트 렌더링 깊이 (0 
 
 /**
  * 루트 컴포넌트 렌더링 시작: 현재 컴포넌트로 등록하고 훅 순번을 0 으로 되돌립니다.
- * @returns 이전에 등록되어 있던 컴포넌트 (중첩 렌더 대비, end 에서 복원)
  */
 export function beginComponentRender(component) {
+  // 1. 혹시 이전에 렌더링하던 게 있다면 백업해 둠 (안전장치)
   const previous = { component: currentComponent, depth: childRenderDepth };
+  
+  // 2. 현재 실행할 컴포넌트를 전역 변수에 등록!
   currentComponent = component;
   childRenderDepth = 0;
+
+  // 3. 훅 번호표(바늘)를 0번으로 리셋!
   component.hookIndex = 0;
   return previous;
 }
@@ -38,11 +42,11 @@ export function endComponentRender(previous) {
 
 /** 자식(Stateless) 컴포넌트 함수를 실행하는 동안 깊이를 올려, 그 안의 훅 호출을 막습니다. */
 export function renderChildComponent(childFn, props) {
-  childRenderDepth += 1;
+  childRenderDepth += 1;  // 1. "지금 자식 컴포넌트 실행 중이다!" 표시 (+1)
   try {
-    return childFn(props);
+    return childFn(props); // 2. 자식 함수 실행
   } finally {
-    childRenderDepth -= 1;
+    childRenderDepth -= 1; // 3. 자식 함수 끝나면 다시 복구 (-1)
   }
 }
 
@@ -50,21 +54,26 @@ export function renderChildComponent(childFn, props) {
  * 훅이 사용할 "자기 칸(slot)"을 받아갑니다.
  *  - 호출 순서대로 0, 1, 2 ... 번 칸을 배정 → 같은 순서로 호출되면 매 렌더마다 같은 칸을 가리킴
  *  - 규칙 위반(컴포넌트 밖, 자식 컴포넌트 안)은 이해하기 쉬운 에러로 알려줍니다.
- * @param {string} hookName 에러 메시지용 훅 이름
- * @returns {{ component, index }}
  */
 export function claimHookSlot(hookName) {
+  // 검사 1: 컴포넌트 렌더링 중도 아닌데 밖에서 훅을 불렀는가?
   if (!currentComponent) {
     throw new Error(`${hookName} 는 컴포넌트를 렌더링하는 중에만 호출할 수 있습니다.`);
   }
+
+  // 검사 2: 자식 컴포넌트 안에서 몰래 훅을 썼는가? (이번 과제의 제약: 상태는 루트에만!)
   if (childRenderDepth > 0) {
     throw new Error(
       `${hookName} 는 루트 컴포넌트에서만 사용할 수 있습니다. ` +
         '자식 컴포넌트는 상태 없이 props 만 받아야 합니다 (Lifting State Up).',
     );
   }
+  
+  // 번호표 뽑기: 현재 순번을 내 칸으로 배정받고, 다음 훅을 위해 번호를 +1 올림!
   const index = currentComponent.hookIndex;
   currentComponent.hookIndex += 1;
+
+  // 내 주인님(component)과 내 자리 번호(index) 반환!
   return { component: currentComponent, index };
 }
 
