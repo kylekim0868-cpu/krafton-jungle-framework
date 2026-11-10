@@ -1,6 +1,7 @@
 import { domToVNode } from './domToVNode.js';
 import { renderVNode } from './renderVNode.js';
 import { assertVNode } from './vnode.js';
+import { applyEvents, applyProperties, assertRuntimeProps, assertPropertyTarget } from './runtimeProps.js';
 
 /** 주석만 제외하고 template.content를 따라 VNode와 같은 자식 목록을 만든다. */
 function containerOf(node) {
@@ -25,6 +26,7 @@ export function preparePatch(root, changes) {
   const destructive = new Map();
   const addresses = [];
   const writes = [];
+  const propertyWrites = [];
   let newRoot = root;
 
   function pathKey(path) {
@@ -95,10 +97,26 @@ export function preparePatch(root, changes) {
       place(group, change.index, renderVNode(change.vnode));
       continue;
     }
-    if (!['REMOVE', 'REPLACE', 'TEXT', 'PROPS', 'MOVE'].includes(type)) throw new TypeError('Unknown change type.');
+    if (!['REMOVE', 'REPLACE', 'TEXT', 'PROPS', 'MOVE', 'EVENTS', 'PROPERTIES'].includes(type)) throw new TypeError('Unknown change type.');
     const node = resolve(change.path);
     claim(change.path, type);
-    if (type === 'TEXT') {
+    if (type === 'EVENTS' || type === 'PROPERTIES') {
+      if (node.nodeType !== 1) throw new TypeError('Runtime props require an element.');
+      // 원본 맵을 나중에 수정해도 준비한 처리의 내용은 바뀌지 않는다.
+      if (!change.previous || !change.next) throw new TypeError('Runtime change maps are required.');
+      const previous = { ...change.previous };
+      const next = { ...change.next };
+      if (type === 'EVENTS') {
+        assertRuntimeProps(previous);
+        assertRuntimeProps(next);
+        writes.push(() => applyEvents(node, previous, next));
+      } else {
+        assertRuntimeProps({}, previous);
+        assertRuntimeProps({}, next);
+        assertPropertyTarget(node, { ...previous, ...next });
+        propertyWrites.push(() => applyProperties(node, previous, next));
+      }
+    } else if (type === 'TEXT') {
       if (node.nodeType !== 3 || typeof change.text !== 'string') throw new TypeError('Invalid text change.');
       const text = change.text;
       writes.push(() => { node.data = text; });
@@ -195,6 +213,8 @@ export function preparePatch(root, changes) {
         anchor = node;
       }
     }
+    // select의 option 추가·삭제가 끝난 뒤 현재 값을 확정한다.
+    for (const write of propertyWrites) write();
     return newRoot;
   };
 }

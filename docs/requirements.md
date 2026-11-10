@@ -63,3 +63,11 @@ Phase 1 통합 수동 절차는 **기준 A → 편집 B → Patch → 편집 C �
 `tests/unit/function-component.test.js`의 루트 생명주기 검사 14개를 `tests/browser/p2-01.html`에서 실제 DOM으로 실행한다. `p2-01.spec.js`의 Playwright 2개가 이 결과와 숫자 데모의 클릭·키보드 갱신 및 기존 노드 참조 보존을 검사한다. 초기 mount·명시적 update·루트 교체·무변경·독립 스냅샷·key 이동·잘못된 입력·실패 복구·재시도·외부 DOM 변경·재진입을 포함한다.
 
 구현 선택은 [P2-01 계약](architecture.md#p2-01-루트-컴포넌트-계약)을 따른다. 실제 통과 결과와 미검증 범위는 작업 보고에 남긴다. Hook 함수·함수 이벤트 props·폼 프로퍼티·사용자 이해와 수용은 각 후속 확인 대상이다.
+
+## P2-02·03·04·05·06 통합 검증 연결
+
+KJF-27에서 사용자가 선택한 범위에 따라 입력·클릭·세 Hook·자식 props를 통합한다. `tests/unit/hooks.test.js`의 19개를 `tests/browser/p2-02.html`에서 실제 DOM으로 실행하고, `p2-02.spec.js`의 Playwright 3개가 모듈 결과와 입력·클릭·Effect 정리·해제 흐름을 확인한다.
+
+State 슬롯·함수 초기값·함수형 setter·동일 값, Memo 재사용·의존성 복사·Object.is 비교, Effect 실행 시점·정리 순서·의존성 생략과 빈 배열·Effect 안의 setter, 호출 제한·잘못된 입력·후보 폐기·부분 적용 복구·Effect 오류 후 확정 상태 보존을 검사한다. 이벤트 교체·제거, value·checked, select 구조 변경, 실제 입력 중 DOM·초점·선택 범위 보존과 해제 후 구독 정리를 포함한다.
+
+계약은 [P2-02 Hooks·런타임 확장](architecture.md#p2-02-hooks런타임-확장-계약)을 따른다. Chromium 자동 입력과 한글 IME의 수동 조합 입력 확인은 구분하며, 실행 결과·사용자 이해·수용 여부는 작업 보고에 기록한다.
