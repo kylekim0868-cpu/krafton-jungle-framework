@@ -1,14 +1,17 @@
-import { h, mountRoot, useState, PATCH } from '../../src/index.js';
+import { h, mountRoot, useState, useEffect, useMemo, PATCH } from '../../src/index.js';
 
 /*
-  Phase 2 데모 페이지 (Day 4: Component + useState)
+  Phase 2 데모 페이지 (Day 4: Component + useState, Day 5: useEffect + useMemo)
 
   컴포넌트 구조 (상태는 App 에만 있음 → Lifting State Up)
 
-    App  ← useState: count, name, todos, draft
-    ├─ CounterCard     (props: count, onIncrement, onDecrement, onReset, onAddThree)
+    App  ← useState: count, isAutoIncrement, name, todos, draft, filter
+         ← useEffect: 문서 제목 동기화 / 자동 증가 타이머(cleanup) / 할 일 localStorage 저장
+         ← useMemo:   할 일 통계, 필터링된 목록
+    ├─ CounterCard     (props: count, isAutoIncrement, onIncrement, onDecrement, onReset, onAddThree, onToggleAuto)
     ├─ GreetingCard    (props: name, onNameInput)
-    └─ TodoCard        (props: todos, draft, onDraftInput, onAdd, onToggle, onRemove)
+    └─ TodoCard        (props: visibleTodos, stats, filter, draft, onFilterChange, onDraftInput, onAdd, onToggle, onRemove)
+         ├─ TodoFilter (props: filter, onFilterChange)
          └─ TodoItem   (props: todo, onToggle, onRemove)
 
   자식 컴포넌트는 모두 props 만 받아 VNode 를 돌려주는 순수 함수입니다.
@@ -17,7 +20,7 @@ import { h, mountRoot, useState, PATCH } from '../../src/index.js';
 // ───────── 자식 컴포넌트 (Stateless) ─────────
 
 /** 카운터 화면. 버튼 클릭은 부모(App)가 넘겨준 콜백으로 처리합니다. */
-function CounterCard({ count, onIncrement, onDecrement, onReset, onAddThree }) {
+function CounterCard({ count, isAutoIncrement, onIncrement, onDecrement, onReset, onAddThree, onToggleAuto }) {
   return h('section', { class: 'card' },
     h('h3', null, '카운터'),
     h('div', { class: 'row' },
@@ -26,6 +29,10 @@ function CounterCard({ count, onIncrement, onDecrement, onReset, onAddThree }) {
       h('button', { type: 'button', onClick: onIncrement }, '+1'),
       h('button', { type: 'button', onClick: onAddThree, title: 'setState 3번 → 렌더링 1번' }, '+3 (batching)'),
       h('button', { type: 'button', onClick: onReset, disabled: count === 0 }, '초기화'),
+    ),
+    h('label', { class: 'auto-toggle' },
+      h('input', { type: 'checkbox', checked: isAutoIncrement, onChange: onToggleAuto }),
+      ` 1초마다 자동 +1 (useEffect 타이머 · 끄면 cleanup 으로 clearInterval)`,
     ),
   );
 }
@@ -50,48 +57,138 @@ function TodoItem({ todo, onToggle, onRemove }) {
   );
 }
 
-/** 할 일 목록 + 추가 폼 */
-function TodoCard({ todos, draft, onDraftInput, onAdd, onToggle, onRemove }) {
-  const doneCount = todos.filter((todo) => todo.done).length;
+/** 전체 / 진행 중 / 완료 필터 버튼 */
+function TodoFilter({ filter, onFilterChange }) {
+  return h('div', { class: 'row filter' },
+    TODO_FILTERS.map(({ value, label }) =>
+      h('button', {
+        key: value,
+        type: 'button',
+        class: filter === value ? 'chip active' : 'chip',
+        'aria-pressed': String(filter === value),
+        onClick: () => onFilterChange(value),
+      }, label)),
+  );
+}
+
+/** 할 일 목록 + 추가 폼 (통계와 필터링 결과는 App 의 useMemo 가 계산해서 내려줌) */
+function TodoCard({ visibleTodos, stats, filter, draft, onFilterChange, onDraftInput, onAdd, onToggle, onRemove }) {
   return h('section', { class: 'card' },
-    h('h3', null, `할 일 (${doneCount}/${todos.length})`),
+    h('h3', null, `할 일 (${stats.done}/${stats.total})`),
+    h('p', { class: 'footer-note', 'data-testid': 'todo-stats' },
+      `완료율 ${stats.percent}% · 통계 계산 ${stats.computeCount}회 (useMemo: 할 일이 바뀔 때만 다시 계산)`),
+    h(TodoFilter, { filter, onFilterChange }),
     h('form', { class: 'row', onSubmit: onAdd },
       h('input', { class: 'text-input', type: 'text', placeholder: '할 일 추가', value: draft, onInput: onDraftInput }),
       h('button', { type: 'submit', disabled: draft.trim() === '' }, '추가'),
     ),
-    todos.length === 0
-      ? h('p', { class: 'footer-note' }, '할 일이 없습니다.')
+    visibleTodos.length === 0
+      ? h('p', { class: 'footer-note' }, '표시할 할 일이 없습니다.')
       : h('ul', { class: 'todo-list' },
-        todos.map((todo) => h(TodoItem, { key: todo.id, todo, onToggle, onRemove })),
+        visibleTodos.map((todo) => h(TodoItem, { key: todo.id, todo, onToggle, onRemove })),
       ),
   );
 }
 
 // ───────── 루트 컴포넌트 (상태와 상태 변경 로직은 모두 여기) ─────────
 
-let nextTodoId = 3;
+export const TODO_STORAGE_KEY = 'mini-react:todos';
+export const AUTO_INCREMENT_INTERVAL_MS = 1000;
+const TODO_FILTERS = [
+  { value: 'all', label: '전체' },
+  { value: 'active', label: '진행 중' },
+  { value: 'done', label: '완료' },
+];
+const DEFAULT_TODOS = [
+  { id: 1, text: 'Virtual DOM 복습', done: true },
+  { id: 2, text: 'useState 구현', done: false },
+];
 
-/** 루트 컴포넌트: 모든 상태를 소유하고, 자식에게 값과 콜백을 props 로 내려줍니다. */
-export function App() {
+/** localStorage 에서 할 일 목록을 읽습니다. (없거나 깨졌거나 접근 불가면 기본값) */
+function loadTodos() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(TODO_STORAGE_KEY));
+    return Array.isArray(saved) ? saved : DEFAULT_TODOS;
+  } catch {
+    return DEFAULT_TODOS;
+  }
+}
+
+let statsComputeCount = 0; // useMemo 효과를 눈으로 보기 위한 계산 횟수
+
+/** 할 일 통계 계산 (useMemo 로 감싸서 todos 가 바뀔 때만 실행) */
+function computeTodoStats(todos) {
+  statsComputeCount += 1;
+  const done = todos.filter((todo) => todo.done).length;
+  const percent = todos.length === 0 ? 0 : Math.round((done / todos.length) * 100);
+  return { total: todos.length, done, percent, computeCount: statsComputeCount };
+}
+
+/**
+ * 루트 컴포넌트: 모든 상태를 소유하고, 자식에게 값과 콜백을 props 로 내려줍니다.
+ * @param {{ onEffectLog?: (type: 'EFFECT'|'CLEANUP', message: string) => void }} props
+ *        effect 실행/정리를 페이지 로그에 보여주기 위한 콜백 (루트 props 예시)
+ */
+export function App({ onEffectLog = () => {} }) {
   const [count, setCount] = useState(0);
+  const [isAutoIncrement, setIsAutoIncrement] = useState(false);
   const [name, setName] = useState('');
-  const [todos, setTodos] = useState(() => [
-    { id: 1, text: 'Virtual DOM 복습', done: true },
-    { id: 2, text: 'useState 구현', done: false },
-  ]);
+  const [todos, setTodos] = useState(loadTodos); // 초기값 함수: 첫 렌더에서만 localStorage 읽음
   const [draft, setDraft] = useState('');
+  const [filter, setFilter] = useState('all');
+
+  // ── useMemo ──
+  // 이름 입력이나 카운터 클릭으로 리렌더돼도 todos 가 그대로면 이전 결과를 재사용
+  const stats = useMemo(() => computeTodoStats(todos), [todos]);
+  const visibleTodos = useMemo(() => {
+    if (filter === 'active') return todos.filter((todo) => !todo.done);
+    if (filter === 'done') return todos.filter((todo) => todo.done);
+    return todos;
+  }, [todos, filter]);
+
+  // ── useEffect ──
+  // 1) count 가 바뀔 때만 문서 제목 동기화 (화면 밖 = 부수 효과)
+  useEffect(() => {
+    document.title = `카운트 ${count} · mini-react`;
+    onEffectLog('EFFECT', `document.title ← "카운트 ${count}"  [deps: count]`);
+  }, [count]);
+
+  // 2) 자동 증가 타이머: 켜지면 setInterval, 꺼지거나 언마운트되면 cleanup 으로 clearInterval
+  useEffect(() => {
+    if (!isAutoIncrement) return undefined;
+    const timerId = setInterval(() => setCount((c) => c + 1), AUTO_INCREMENT_INTERVAL_MS);
+    onEffectLog('EFFECT', `setInterval 시작 (id ${timerId})  [deps: isAutoIncrement]`);
+    return () => {
+      clearInterval(timerId);
+      onEffectLog('CLEANUP', `clearInterval (id ${timerId})`);
+    };
+  }, [isAutoIncrement]);
+
+  // 3) 할 일 목록이 바뀔 때마다 localStorage 에 저장 (새로고침해도 유지)
+  useEffect(() => {
+    try {
+      localStorage.setItem(TODO_STORAGE_KEY, JSON.stringify(todos));
+    } catch {
+      // 사생활 보호 모드 등에서 저장이 막혀도 앱은 계속 동작
+    }
+    onEffectLog('EFFECT', `localStorage 저장 (${todos.length}개)  [deps: todos]`);
+  }, [todos]);
+
+  const nextTodoId = () => todos.reduce((max, todo) => Math.max(max, todo.id), 0) + 1;
 
   const addTodo = (event) => {
     event.preventDefault();
     const text = draft.trim();
     if (!text) return;
-    setTodos((prev) => [...prev, { id: nextTodoId++, text, done: false }]);
+    setTodos((prev) => [...prev, { id: nextTodoId(), text, done: false }]);
     setDraft('');
   };
 
   return h('div', { class: 'app' },
     h(CounterCard, {
       count,
+      isAutoIncrement,
+      onToggleAuto: () => setIsAutoIncrement((on) => !on),
       onIncrement: () => setCount((c) => c + 1),
       onDecrement: () => setCount((c) => c - 1),
       onReset: () => setCount(0),
@@ -104,7 +201,10 @@ export function App() {
     }),
     h(GreetingCard, { name, onNameInput: (event) => setName(event.target.value) }),
     h(TodoCard, {
-      todos,
+      visibleTodos,
+      stats,
+      filter,
+      onFilterChange: setFilter,
       draft,
       onDraftInput: (event) => setDraft(event.target.value),
       onAdd: addTodo,
@@ -161,7 +261,20 @@ export function setupPhase2Page(doc = document) {
     while (commitLog.children.length > 30) commitLog.lastElementChild.remove();
   };
 
-  return mountRoot(App, doc.getElementById('app'), {}, { onCommit: logCommit });
+  /** useEffect 실행/정리를 가장 최근 렌더링 로그 묶음 아래에 붙입니다. */
+  const logEffect = (type, message) => {
+    const line = doc.createElement('div');
+    line.className = 'log-item';
+    const badge = doc.createElement('span');
+    badge.className = `type type-${type}`;
+    badge.textContent = type;
+    const detail = doc.createElement('span');
+    detail.textContent = message;
+    line.append(badge, detail);
+    (commitLog.firstElementChild ?? commitLog).appendChild(line);
+  };
+
+  return mountRoot(App, doc.getElementById('app'), { onEffectLog: logEffect }, { onCommit: logCommit });
 }
 
 /** 이벤트 핸들러(함수)만 바뀐 PROPS patch 인지 판별 */

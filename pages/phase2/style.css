@@ -24,3 +24,12 @@
 .todo-item button { margin-left: auto; padding: 2px 8px; font-size: 12px; }
 
 .footer-note { color: var(--muted); font-size: 12px; margin: 6px 0 0; }
+
+.auto-toggle { display: block; margin-top: 8px; font-size: 13px; color: var(--muted); }
+
+.filter { margin: 8px 0 0; }
+.chip { padding: 3px 10px; font-size: 12px; border-radius: 999px; }
+.chip.active { background: var(--primary); border-color: var(--primary); color: #fff; }
+
+.type-EFFECT { background: #0f766e; }
+.type-CLEANUP { background: #6b7280; }
