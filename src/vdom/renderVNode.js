@@ -1,3 +1,5 @@
+import { applyEvents, applyProperties, assertRuntimeProps, assertPropertyTarget } from './runtimeProps.js';
+
 /**
  * 공통 VNode 트리를 재귀적으로 읽어 새 DOM 노드를 생성한다.
  * domToVNode의 반대 방향이며 HTML 문자열을 다시 파싱하는 방식으로 우회하지 않는다.
@@ -27,12 +29,15 @@ export function renderVNode(vnode) {
     throw new TypeError('Invalid element VNode.');
   }
 
-  // props는 DOM에서 읽은 HTML 속성이다. setAttribute로 옮기며
-  // input.value 같은 현재 프로퍼티나 addEventListener의 함수까지 복원하는 단계는 아니다.
+  // props는 DOM에서 읽은 문자열 HTML 속성이다. 현재 값과 함수 이벤트는
+  // properties·events 필드로 따로 받아 Phase 1의 속성 계약을 유지한다.
   const element = document.createElement(vnode.tag);
   for (const [name, value] of Object.entries(vnode.props)) {
     element.setAttribute(name, value);
   }
+  assertRuntimeProps(vnode.events, vnode.properties);
+  assertPropertyTarget(element, vnode.properties ?? {});
+  applyEvents(element, {}, vnode.events);
 
   // <template>은 자식이 content에 들어가야 내부 구조가 유지된다.
   // 각 자식을 새 DOM으로 만든 뒤 차례로 붙여 VNode의 자식 순서를 보존한다.
@@ -40,6 +45,8 @@ export function renderVNode(vnode) {
   for (const child of vnode.children) {
     target.appendChild(renderVNode(child));
   }
+  // select.value는 option 자식 생성이 끝난 뒤 반영한다.
+  applyProperties(element, {}, vnode.properties);
   // 호출자가 replaceChildren 등으로 붙일 수 있도록 생성한 루트 참조를 반환한다.
   return element;
 }

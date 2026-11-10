@@ -26,7 +26,7 @@ function stablePositions(indices) {
 }
 
 /**
- * 두 VNode를 비교하여 INSERT·REMOVE·REPLACE·TEXT·PROPS·MOVE 배열을 반환한다.
+ * 두 VNode를 비교하여 INSERT·REMOVE·REPLACE·TEXT·PROPS·MOVE와 런타임 변경 배열을 반환한다.
  * DOM과 입력 VNode는 변경하지 않는다. 지원 밖 VNode·중복 key는 TypeError다.
  * path는 이전 VNode.children 기준, INSERT·MOVE의 index는 최종 자식 순서 기준이다.
  * data-key가 있으면 같은 부모의 key로 찾고, 없으면 같은 위치의 key 없는 자식과 비교한다.
@@ -51,6 +51,7 @@ export function diff(previousVNode, nextVNode) {
       .filter(([name, value]) => !Object.hasOwn(before.props, name) || before.props[name] !== value));
     const remove = Object.keys(before.props).filter((name) => !Object.hasOwn(after.props, name));
     if (Object.keys(set).length || remove.length) changes.push({ type: 'PROPS', path, set, remove });
+    const childChangeStart = changes.length;
 
     const oldKeys = new Map();
     before.children.forEach((child, index) => {
@@ -77,6 +78,19 @@ export function diff(previousVNode, nextVNode) {
     for (let index = before.children.length - 1; index >= 0; index -= 1) {
       if (!used.has(index)) changes.push({ type: 'REMOVE', path: [...path, index] });
     }
+
+    // 함수 이벤트와 현재 폼 값은 문자열 HTML 속성과 별도 명령으로 갱신한다.
+    for (const [field, type] of [['events', 'EVENTS'], ['properties', 'PROPERTIES']]) {
+      const previous = before[field] ?? {};
+      const next = after[field] ?? {};
+      const resetSelect = field === 'properties' && after.tag === 'select'
+        && Object.hasOwn(next, 'value') && changes.length > childChangeStart;
+      if (resetSelect || Object.keys(previous).length !== Object.keys(next).length
+          || Object.keys(previous).some((name) => !Object.hasOwn(next, name) || !Object.is(previous[name], next[name]))) {
+        changes.push({ type, path, previous, next });
+      }
+    }
+
   }
 
   compare(previousVNode, nextVNode, []);

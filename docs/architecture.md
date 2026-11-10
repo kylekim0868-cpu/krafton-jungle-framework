@@ -14,15 +14,15 @@ Phase 2 상태 변경 → 루트 렌더 ──┘
 | --- | --- | --- |
 | `src/vdom/domToVNode.js` | DOM을 요소·텍스트 VNode로 읽기 | 구현 있음. 원본 보존·문자열 속성·주석 제외 |
 | `src/vdom/renderVNode.js` | VNode로 새 DOM 만들기 | 구현 있음. 문서에 붙이는 일은 호출자가 담당 |
-| `src/vdom/createVNode.js` | 코드에서 같은 형식의 VNode 만들기 | 빈 파일 |
+| `src/vdom/createVNode.js` | 코드에서 같은 형식의 VNode 만들기 | HTML 태그·props 전용 자식 함수, 배열·빈 자식 정규화, 이벤트·폼 현재 값 분리 |
 | `src/vdom/vnode.js` | 공통 입력·key 계약 검증 | 문자열 속성·순환 참조·빈/중복 형제 data-key 검사 |
 | `src/vdom/diff.js`, `patch.js` | VNode 비교, 필요한 DOM 변경 | key 조회·이동 계획과 부분 Patch 구현. preparePatch로 준비·적용을 분리 |
 | `demos/phase1/main.js` | 실제·편집 영역과 버튼 연결 | 초기화·부분 Patch·이력 복원·실패 복구. 양쪽 반영 성공 후에만 이력 후보를 확정 |
 | `demos/phase1/history.js` | DOM 없는 스냅샷·위치 계산 | 초기 이력·새 저장·앞뒤 이동 후보를 순수 함수로 반환. 깊은 복사·동결로 과거 데이터를 보호 |
 | `demos/phase1/editorKeys.js` | 브라우저 편집으로 복제된 key 정리 | 기존 항목 key를 추적하고 구조 변경 입력에서 새 중복 노드에만 일회성 key 발급. 공통 엔진의 중복 거부 정책 유지 |
-| `src/component/FunctionComponent.js`, `hooks.js` | 루트의 이전 VNode·Hook 상태, mount·update | P2-01 루트 함수·mount·명시적 update 구현. hooks 배열은 인스턴스에 유지하며 Hook 함수 파일은 후속 작업 |
-| `demos/phase2/` | 입력·클릭·Hooks 데모 | P2-01에서 외부 버튼이 새 props로 update를 호출하는 숫자 데모. Hook 함수는 후속 작업 |
-| `tests/unit/`, `tests/browser/` | 모듈 계약과 실제 DOM·사용자 흐름 검사 | P1-00·P1-01 회귀, P1-02 Diff·Patch·성능, P1-03 복합 변경, P1-04 이력·분기·실패 보존을 연결. 사용자 이해·수용은 별도로 확인 |
+| `src/component/FunctionComponent.js`, `hooks.js` | 루트의 이전 VNode·Hook 상태, mount·update | P2-01 생명주기와 P2-02의 루트 useState·useEffect·useMemo·unmount 구현. Hook 후보는 DOM 성공 후 확정 |
+| `demos/phase2/` | 입력·클릭·Hooks 데모 | 루트 State의 이름·숫자, props 전용 Counter, 두 배 Memo, 제목·단축키 Effect와 해제 로그 |
+| `tests/unit/`, `tests/browser/` | 모듈 계약과 실제 DOM·사용자 흐름 검사 | P1-00~04 회귀, P2-01 루트 생명주기, P2-02 Hooks·입력·이벤트·해제 검사를 연결. 사용자 이해·수용은 별도로 확인 |
 
 기존 VNode는 `{ kind: 'text', text }` 또는 `{ kind: 'element', tag, props, children }`다. `<p>안녕</p>`은 `p` 요소와 텍스트 자식으로 읽고 `renderVNode`가 각각 새 DOM을 만든다. 초기화 연결은 `demos/phase1/main.js`에서 볼 수 있다.
 
@@ -48,10 +48,21 @@ KJF-26의 구현 선택이다. 사용자 이해·수용 여부는 실행 결과�
 - `mount(container)`는 HTML 컨테이너 콘텐츠를 최초 렌더 결과로 교체하고 루트 DOM을 반환한다. `update(nextProps)`는 동기적으로 루트 함수를 재실행하고 기존 `diff`·`preparePatch`로 갱신한다. 인자를 생략하면 마지막 성공 시의 props를 사용한다. 루트 교체 시 새 DOM을 추적한다.
 - 렌더 결과는 검증 후 복사한다. 컨테이너 콘텐츠는 인스턴스가 소유하며, 외부 DOM 변경·mount 전 update·중복 mount·렌더 중 재진입을 거부한다. 렌더 함수는 입력과 외부 상태를 변경하지 않아야 한다.
 - 준비 오류는 DOM과 확정 기준을 유지한다. 적용 중 실패하면 이전 콘텐츠 또는 VNode로 복구하고 오류를 전달한다. 복구까지 실패하면 인스턴스를 잠근다. 무변경 갱신은 DOM을 쓰지 않고 props를 확정한다.
-- 데모의 버튼은 컨트롤러가 `addEventListener`로 연결한다. VNode는 Phase 1의 문자열 HTML 속성 계약을 사용한다. `useState`·`useEffect`·`useMemo`와 VNode 생성 API는 후속 요구사항에서 구현한다.
+- P2-01의 기본 VNode는 Phase 1의 문자열 HTML 속성 계약을 사용한다. P2-02에서 VNode 생성 API·이벤트·세 Hook을 연결하며 아래 확장 계약을 따른다.
 
-## Phase 2에서 결정할 것
+## P2-02 Hooks·런타임 확장 계약
 
-현재 `props`는 HTML 속성 문자열이며 `renderVNode`는 `setAttribute()`를 사용한다. Phase 2 진입 때 VNode 생성·자식 정규화, 함수형 컴포넌트 실행, 이벤트 등록·교체·제거, `value`·`checked` 같은 DOM 프로퍼티 반영과 setter 갱신 시점을 결정한다. Effect의 실행·정리와 Memo 의존성 비교는 각 Hook 작업에서 결정한다.
+KJF-27은 사용자가 선택한 전체 통합 범위에 따라 P2-02와 선행 P2-03·04·05·06을 함께 구현한다.
 
-상태와 Hooks는 루트에서만 사용하고 자식은 props만 사용하는 순수 함수다. Phase 1의 문자열 속성 변환을 유지하면서 공통 렌더·Patch를 확장하며 Phase 2 전용 Diff·Patch를 복제하지 않는다.
+- `createVNode(tag, props, ...children)`는 기존 요소·텍스트 VNode를 만든다. 배열을 펼치고 문자열·숫자를 텍스트로 바꾸며 null·undefined·불리언 자식을 생략한다. HTML 태그·속성 이름은 소문자로 정규화한다.
+- `createVNode(Child, props)`는 자식을 Hook 프레임 없이 실행한다. 자식은 이 경로로 호출해 props만 사용한다. 루트 안에서 임의의 일반 함수를 직접 호출하는 경우에는 그 함수를 자식과 구분할 수 없다.
+- 기존 `props`는 문자열 HTML 속성이다. 함수형 `onClick`·`onInput` 등은 `events` 맵으로 분리하고, input·textarea·select의 `value`와 input의 `checked`는 `properties`에 둔다. 기존 Phase 1의 속성 읽기·쓰기 계약은 유지한다. 런타임 값은 DOM → VNode 변환의 복원 대상이 아니다.
+- 공통 Diff는 `EVENTS`·`PROPERTIES` 명령을 추가로 만든다. Patch는 이벤트의 이전 함수를 해제하고 새 함수를 등록한다. 폼 값은 구조 반영 후 현재 값이 달라질 때만 써서 입력 선택 범위를 유지한다. select는 요청 값이 같아도 option 변경 후 선택 값을 다시 확정한다. 이벤트 함수를 포함한 VNode는 데이터 맵을 복사하고 함수 참조를 보존한다.
+- `useState(initial)`는 함수 초기값을 최초 성공 렌더에 사용하고 안정적인 setter를 반환한다. setter는 값 또는 이전 값을 받는 순수 함수를 받으며 Object.is로 같은 값이면 렌더를 생략한다. 일반 setter는 즉시 갱신한다. 렌더·초기화·Memo 계산 중 setter 호출은 거부한다.
+- Hook 종류와 호출 수는 최초 렌더와 같아야 한다. 루트 밖·자식 생성 함수·Memo 계산 안의 Hook 호출을 거부한다. Hook 슬롯은 인스턴스별로 보존하며 렌더·준비·Patch 실패 시 후보를 버린다.
+- `useMemo(calculate, deps)`는 얕게 복사한 의존성을 항목별 Object.is로 비교한다. 같은 배열 내용이면 이전 값을 반환하고, deps를 생략하면 매번 계산한다. 계산 함수는 순수해야 한다.
+- `useEffect(callback, deps)`는 DOM과 Hooks 확정 후 실행한다. deps 생략은 매 렌더, []는 최초, 배열은 항목별 변경 시 실행한다. 변경된 Effect의 이전 정리를 모두 마친 뒤 새 콜백을 실행한다. 콜백은 정리 함수 또는 undefined를 반환한다.
+- Effect 안의 setter는 현재 정리·실행을 마친 뒤 마이크로태스크에서 처리한다. 일반 이벤트 setter 여러 개를 묶는 Batching은 제공하지 않는다. Effect 오류는 다른 Effect 처리 후 AggregateError로 전달하며 이미 확정한 DOM·State는 유지한다.
+- `unmount()`는 콘텐츠를 제거하고 Effect를 한 번 정리한다. 해제 후의 오래된 setter와 대기 중인 setter는 화면을 바꾸지 않는다. 같은 인스턴스의 재마운트는 지원하지 않는다. 정리 오류가 나도 나머지 자원은 정리한다.
+
+Effect 오류 전파·동기 setter·마이크로태스크 예약은 이번 미니 구현의 계약이다. 실제 React의 모든 스케줄링 동작을 구현한 것으로 해석하지 않는다. 지원하지 않는 동작은 Fragment·Context·중첩 상태 컴포넌트·자동 Batching이며, SVG·MathML과 폼 선택 범위의 이력 복원도 기존 지원 범위 밖이다.

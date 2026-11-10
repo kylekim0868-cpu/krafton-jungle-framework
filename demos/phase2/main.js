@@ -2,29 +2,34 @@ import { FunctionComponent } from '../../src/component/FunctionComponent.js';
 import { App } from './App.js';
 
 const container = document.querySelector('#component-root');
-const updateButton = document.querySelector('#update-button');
+const unmountButton = document.querySelector('#unmount-button');
 const status = document.querySelector('#app-status');
-const component = new FunctionComponent(App, { count: 0 });
-let count = 0;
+const log = document.querySelector('#effect-log');
 
+function reportEffect(message) {
+  const item = document.createElement('li');
+  item.textContent = message;
+  log.appendChild(item);
+  while (log.children.length > 12) log.firstChild.remove();
+}
+
+const component = new FunctionComponent(App, { onEffect: reportEffect });
 try {
   component.mount(container);
-  updateButton.disabled = false;
-  status.textContent = 'mount 완료 · 숫자 0을 표시했습니다.';
+  unmountButton.disabled = false;
+  status.textContent = 'mount 완료 · 이름 입력과 버튼 클릭이 루트 상태를 갱신합니다.';
   document.documentElement.dataset.appState = 'ready';
 } catch (error) {
   status.textContent = `mount 실패 · ${error.message}`;
   document.documentElement.dataset.appState = 'error';
 }
 
-// P2-01에서는 컨트롤러가 props를 전달한다. 성공한 갱신 뒤에만 다음 숫자를 확정한다.
-updateButton.addEventListener('click', () => {
-  const nextCount = count + 1;
+unmountButton.addEventListener('click', () => {
   try {
-    component.update({ count: nextCount });
-    count = nextCount;
-    status.textContent = `update 완료 · 숫자 ${count}를 표시했습니다.`;
+    component.unmount();
+    unmountButton.disabled = true;
+    status.textContent = 'unmount 완료 · 화면과 단축키를 정리했습니다. 새로고침하면 다시 시작합니다.';
   } catch (error) {
-    status.textContent = `update 실패 · ${error.message}`;
+    status.textContent = `unmount 실패 · ${error.message}`;
   }
 });
