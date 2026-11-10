@@ -34,12 +34,18 @@ src/
 │  └─ patch.js           patches를 실제 DOM에 반영
 ├─ history/
 │  └─ stateHistory.js    State History (뒤로/앞으로, 미래 기록 삭제, 최대 개수)
-└─ core/                 (Phase 2) FunctionComponent, Hooks
+└─ core/                 (Phase 2)
+   ├─ functionComponent.js  FunctionComponent 클래스 (hooks 배열, mount, update), mountRoot
+   ├─ hooks.js              useState
+   ├─ hookRuntime.js        현재 렌더링 중인 컴포넌트와 훅 순번 관리, 훅 규칙 검사
+   ├─ resolveVNode.js       자식 함수형 컴포넌트를 태그 VNode로 펼치기
+   └─ scheduler.js          setState 업데이트 예약과 배칭
 pages/
 ├─ phase1/               (Phase 1) 실제 영역 / 테스트 영역 / History 페이지
 │  ├─ index.html, style.css
 │  └─ phase1Page.js      페이지 컨트롤러
-└─ app/                  (Phase 2) 데모 앱
+├─ phase2/               (Phase 2) 카운터, 입력, 할 일 데모 + 렌더링 로그
+└─ app/                  (Phase 2) 최종 데모 앱 (예정)
 scripts/devServer.js     개발용 정적 서버 (Node 내장 모듈만 사용)
 tests/                   Vitest + jsdom 단위 / 기능 테스트
 ```
@@ -53,7 +59,9 @@ tests/                   Vitest + jsdom 단위 / 기능 테스트
 | [Phase1] Patch 알고리즘 구현 | 완료 | `src/diff/patch.js` |
 | [Phase1] State History 구현 | 완료 | `src/history/stateHistory.js` |
 | [Phase1] 테스트 페이지 구현 | 완료 | `pages/phase1` |
-| [Phase2] FunctionComponent / useState / useEffect / useMemo | 예정 | `src/core` |
+| [Phase2] FunctionComponent 구현 | 완료 | `src/core/functionComponent.js`, `resolveVNode.js` |
+| [Phase2] useState 구현 | 완료 | `src/core/hooks.js`, `hookRuntime.js`, `scheduler.js` |
+| [Phase2] useEffect / useMemo 구현 | 예정 | `src/core/hooks.js` |
 
 ## 설계
 
@@ -108,6 +116,40 @@ tests/                   Vitest + jsdom 단위 / 기능 테스트
 - 바뀐 노드는 별도 레이어에 색 박스로 강조합니다. 실제 영역 DOM을 건드리지 않기 위해서입니다.
 - 단축키: `Ctrl + Enter`는 Patch, `Tab`은 들여쓰기입니다.
 
+### Phase 2: Component, State, Hooks
+
+```
+mountRoot(App, container)
+  └─ new FunctionComponent(App).mount(container)
+       └─ render()
+            ├─ beginComponentRender(this)   현재 컴포넌트 등록, hookIndex = 0
+            ├─ App(props)                    useState → claimHookSlot → hooks[0], hooks[1] ...
+            ├─ resolveVNode(결과)            h(Child, props) → Child(props) 실행 → 태그 VNode
+            └─ endComponentRender()
+       └─ createElement(VDOM) → container에 처음 그림
+
+클릭 → setState(next)
+  ├─ 같은 값(Object.is)이면 종료
+  ├─ hook.value = next
+  └─ scheduleUpdate(component)       같은 틱의 여러 요청을 Set에 모음
+        └─ (마이크로태스크) flushUpdates()
+              └─ component.update()
+                   ├─ render()                     새 VDOM
+                   ├─ diff(이전 VDOM, 새 VDOM)      Phase 1 재사용
+                   └─ applyPatches(container, …)   바뀐 부분만 실제 DOM에 반영
+```
+
+- **상태 유지**: 상태는 함수 밖 `component.hooks` 배열에 저장합니다. 렌더링마다 `hookIndex`를 0부터 다시 세서, 같은 순서로 호출된 훅이 같은 칸을 찾아갑니다.
+- **훅 규칙 검사**
+  - 컴포넌트 밖에서 호출하면 에러
+  - 자식 컴포넌트 안에서 호출하면 에러 (상태는 루트에서만, Lifting State Up)
+  - 렌더마다 훅 개수나 종류가 달라지면 에러
+  - 렌더링 중 `setState`를 호출하면 에러
+- **배칭**: `setState`를 여러 번 불러도 마이크로태스크에서 한 번만 렌더링합니다. 함수형 업데이트 `setState(prev => …)`는 누적됩니다.
+- **자식 컴포넌트**: 인스턴스 없이 렌더링할 때마다 함수를 호출해 펼칩니다. `key`는 결과 태그로 옮깁니다.
+- **이벤트**: 요소마다 이벤트 종류별 대리 리스너를 한 번만 등록하고, 실제 핸들러는 참조만 교체합니다. 렌더마다 새 함수가 만들어져도 리스너를 다시 등록하지 않습니다.
+- **controlled input**: `value`가 이미 같으면 다시 넣지 않아 입력 중 커서가 튀지 않습니다. input 노드도 유지되어 포커스가 사라지지 않습니다.
+
 ### 알려진 한계
 
 - 자식은 인덱스로 비교합니다. 그래서 리스트 맨 앞에 삽입하면 뒤 항목이 모두 변경으로 잡힙니다. `key` 기반 비교로 개선할 예정입니다.
@@ -123,3 +165,5 @@ tests/                   Vitest + jsdom 단위 / 기능 테스트
 | `tests/htmlToVNode.test.js` | HTML 파싱, 공백 정규화, XSS 정화 |
 | `tests/stateHistory.test.js` | 이동, 미래 기록 삭제, 최대 개수, 불변성 |
 | `tests/phase1Page.test.js` | 기능 테스트: 실제 `index.html`로 Patch, 뒤로/앞으로, 목록 이동, 보안 |
+| `tests/functionComponent.test.js` | mount/update, useState, 배칭, 훅 규칙 위반, 자식 컴포넌트, 최소 patch, 이벤트 핸들러 교체 |
+| `tests/phase2Page.test.js` | 기능 테스트: 카운터, 배칭, 입력 포커스 유지, 할 일 추가/토글/삭제, 렌더링 로그 |
