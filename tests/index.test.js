@@ -7,6 +7,7 @@ describe('src/index.js 공개 API', () => {
     ['h'], ['createTextVNode'], ['domToVNode'], ['createElement'], ['updateProp'], ['removeProp'],
     ['vnodeToHTML'], ['htmlToVNodes'], ['normalizeVNode'], ['sanitizeVNode'],
     ['diff'], ['diffProps'], ['applyPatches'], ['patch'], ['getNode'], ['StateHistory'],
+    ['FunctionComponent'], ['mountRoot'], ['useState'], ['resolveVNode'], ['flushUpdates'],
   ])('%s 함수를 내보낸다', (name) => {
     expect(typeof miniReact[name]).toBe('function');
   });
