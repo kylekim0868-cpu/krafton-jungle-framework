@@ -63,15 +63,17 @@ export function setProp(el, name, value) {
   if (name === 'key') return;
 
   //속성 이름이 onClick, onInput처럼 'on'으로 시작하고 값이 함수라면 
-  // addEventListener를 통해 실제 브라우저 이벤트로 등록합니다.
+  // 실제 브라우저 이벤트로 등록합니다. (Day 4: setEventHandler 로 위임 → 핸들러 교체 시 재등록 불필요)
   if (name.startsWith('on') && typeof value === 'function') {
-    el.addEventListener(name.slice(2).toLowerCase(), value);   // Phase 2 대비
+    setEventHandler(el, toEventName(name), value);
   } 
   
   //<input>의 입력값이나 체크박스의 체크 여부는 setAttribute('value', ...)로 
   // 넣으면 버그가 생기기 때문에 프로퍼티로 설정
+  //Day 4: 값이 같으면 다시 넣지 않습니다. (입력 중인 input 에 같은 값을 다시 넣으면 커서가 맨 끝으로 튀는 브라우저가 있음)
   else if (name === 'value' || name === 'checked') {
-    el[name] = value;
+    const nextValue = name === 'value' ? String(value) : Boolean(value);
+    if (el[name] !== nextValue) el[name] = nextValue;
   }
 
 
@@ -103,11 +105,9 @@ const isEvent = (name, value) => name.startsWith('on') && typeof value === 'func
 export function updateProp(el, name, oldValue, newValue) {
   if (name === 'key') return;
 
-  // 이벤트 핸들러: 이전 함수를 먼저 떼어내야 핸들러가 중복으로 쌓이지 않습니다.
+  // 이벤트 핸들러: 리스너는 그대로 두고 "현재 핸들러" 참조만 교체합니다. (없어지면 null → 호출 안 됨)
   if (isEvent(name, oldValue) || isEvent(name, newValue)) {
-    const eventName = name.slice(2).toLowerCase();
-    if (typeof oldValue === 'function') el.removeEventListener(eventName, oldValue);
-    if (typeof newValue === 'function') el.addEventListener(eventName, newValue);
+    setEventHandler(el, toEventName(name), typeof newValue === 'function' ? newValue : null);
     return;
   }
 
@@ -118,6 +118,31 @@ export function updateProp(el, name, oldValue, newValue) {
   }
 
   setProp(el, name, newValue);
+}
+
+/*
+  Day 4: 이벤트 핸들러 위임 (handler proxy)
+
+  문제: 함수형 컴포넌트는 렌더링마다 onClick={() => ...} 같은 "새 함수"를 만듭니다.
+       매번 removeEventListener + addEventListener 를 하면 비용이 들고, 이전 함수를 잘못 떼면 핸들러가 쌓입니다.
+  해결: 요소마다 이벤트 종류별로 "대리 리스너"를 딱 한 번만 등록하고,
+       실제로 호출할 함수는 el.__miniReactHandlers[이벤트명] 에 저장해 두었다가 참조만 바꿉니다.
+         click 발생 → 대리 리스너 → 현재 저장된 핸들러 호출
+*/
+const HANDLERS_KEY = '__miniReactHandlers';
+
+function toEventName(propName) {
+  return propName.slice(2).toLowerCase(); // onClick → click, onInput → input
+}
+
+function setEventHandler(el, eventName, handler) {
+  if (!el[HANDLERS_KEY]) el[HANDLERS_KEY] = {};
+  const handlers = el[HANDLERS_KEY];
+  const isListening = eventName in handlers;
+  handlers[eventName] = handler;
+  if (!isListening) {
+    el.addEventListener(eventName, (event) => handlers[eventName]?.(event));
+  }
 }
 
 //속성 제거. value/checked 는 프로퍼티라서 removeAttribute 만으로는 화면 값이 안 지워집니다.
