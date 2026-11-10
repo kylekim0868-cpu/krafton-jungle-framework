@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>P2-01 루트 컴포넌트 검증</title>
+    <style>
+      body { font: 15px/1.6 system-ui, sans-serif; max-width: 1000px; margin: 32px auto; padding: 0 20px; }
+      [data-result="passed"] { color: #14613d; }
+      [data-result="failed"] { color: #b42318; }
+    </style>
+  </head>
+  <body>
+    <h1>P2-01 · 루트 컴포넌트 모듈 검증</h1>
+    <p id="summary" role="status" data-state="running">검사 준비 중</p>
+    <ol id="results"></ol>
+    <script type="module">
+      import { functionComponentTests } from '../unit/function-component.test.js';
+      const summary = document.querySelector('#summary');
+      let passed = 0;
+      let failed = 0;
+      for (const [name, run] of functionComponentTests) {
+        const item = document.createElement('li');
+        try {
+          await run();
+          item.textContent = `통과: ${name}`;
+          item.dataset.result = 'passed';
+          passed += 1;
+        } catch (error) {
+          item.textContent = `실패: ${name} — ${error.message}`;
+          item.dataset.result = 'failed';
+          failed += 1;
+        }
+        document.querySelector('#results').appendChild(item);
+      }
+      summary.textContent = `통과 ${passed} / 실패 ${failed} / 전체 ${passed + failed}`;
+      summary.dataset.state = failed ? 'failed' : 'passed';
+      summary.dataset.passed = passed;
+      summary.dataset.failed = failed;
+    </script>
+  </body>
+</html>
