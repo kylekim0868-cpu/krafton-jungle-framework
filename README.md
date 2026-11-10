@@ -36,7 +36,9 @@ src/
 │  └─ stateHistory.js    State History (뒤로/앞으로, 미래 기록 삭제, 최대 개수)
 └─ core/                 (Phase 2)
    ├─ functionComponent.js  FunctionComponent 클래스 (hooks 배열, mount, update), mountRoot
-   ├─ hooks.js              useState
+   ├─ hooks.js              useState, useEffect, useMemo
+   ├─ deps.js               의존성 배열 비교 (useEffect, useMemo 공용)
+   ├─ effects.js            Patch 후 effect 실행, cleanup, unmount 정리
    ├─ hookRuntime.js        현재 렌더링 중인 컴포넌트와 훅 순번 관리, 훅 규칙 검사
    ├─ resolveVNode.js       자식 함수형 컴포넌트를 태그 VNode로 펼치기
    └─ scheduler.js          setState 업데이트 예약과 배칭
@@ -44,7 +46,7 @@ pages/
 ├─ phase1/               (Phase 1) 실제 영역 / 테스트 영역 / History 페이지
 │  ├─ index.html, style.css
 │  └─ phase1Page.js      페이지 컨트롤러
-├─ phase2/               (Phase 2) 카운터, 입력, 할 일 데모 + 렌더링 로그
+├─ phase2/               (Phase 2) 카운터, 입력, 할 일 데모 + 렌더링·Effect 로그
 └─ app/                  (Phase 2) 최종 데모 앱 (예정)
 scripts/devServer.js     개발용 정적 서버 (Node 내장 모듈만 사용)
 tests/                   Vitest + jsdom 단위 / 기능 테스트
@@ -61,7 +63,8 @@ tests/                   Vitest + jsdom 단위 / 기능 테스트
 | [Phase1] 테스트 페이지 구현 | 완료 | `pages/phase1` |
 | [Phase2] FunctionComponent 구현 | 완료 | `src/core/functionComponent.js`, `resolveVNode.js` |
 | [Phase2] useState 구현 | 완료 | `src/core/hooks.js`, `hookRuntime.js`, `scheduler.js` |
-| [Phase2] useEffect / useMemo 구현 | 예정 | `src/core/hooks.js` |
+| [Phase2] useEffect 구현 | 완료 | `src/core/hooks.js`, `effects.js`, `deps.js` |
+| [Phase2] useMemo 구현 | 완료 | `src/core/hooks.js`, `deps.js` |
 
 ## 설계
 
@@ -148,7 +151,25 @@ mountRoot(App, container)
 - **배칭**: `setState`를 여러 번 불러도 마이크로태스크에서 한 번만 렌더링합니다. 함수형 업데이트 `setState(prev => …)`는 누적됩니다.
 - **자식 컴포넌트**: 인스턴스 없이 렌더링할 때마다 함수를 호출해 펼칩니다. `key`는 결과 태그로 옮깁니다.
 - **이벤트**: 요소마다 이벤트 종류별 대리 리스너를 한 번만 등록하고, 실제 핸들러는 참조만 교체합니다. 렌더마다 새 함수가 만들어져도 리스너를 다시 등록하지 않습니다.
+- **useEffect**
+  - 렌더링 중에는 deps를 비교해 실행할 effect를 `pendingEffects`에 **예약만** 합니다.
+  - Patch가 끝난 뒤 `runPendingEffects`에서 이전 cleanup을 모두 먼저 실행하고, 새 effect를 선언 순서대로 실행합니다.
+  - `unmount()` 때 모든 cleanup을 실행합니다.
+  - deps: 생략하면 매 렌더, `[]`면 처음 한 번, `[a]`면 a가 바뀔 때만 (`Object.is` 비교).
+  - effect 안의 `setState`가 연속으로 50번 넘게 렌더링을 일으키면 에러로 막습니다(무한 루프 방지).
+- **useMemo**: 렌더링 중에 바로 계산해서 값을 돌려주고, deps가 같으면 이전 값을 재사용합니다.
 - **controlled input**: `value`가 이미 같으면 다시 넣지 않아 입력 중 커서가 튀지 않습니다. input 노드도 유지되어 포커스가 사라지지 않습니다.
+
+### 실제 React와의 차이 (Phase 2)
+
+| 항목 | mini-react | React |
+|---|---|---|
+| 훅 사용 위치 | 루트 컴포넌트만 (과제 제약) | 모든 함수 컴포넌트 |
+| 렌더링 범위 | 루트 전체를 다시 실행 | 상태가 바뀐 컴포넌트와 그 하위만 |
+| 자료구조 | VDOM 트리, `hooks` 배열 | Fiber 연결 리스트, 컴포넌트마다 훅 연결 리스트 |
+| useEffect 실행 시점 | Patch 직후 동기 실행 (`useLayoutEffect`에 가까움) | 화면을 그린(paint) 뒤 비동기 실행 |
+| 스케줄링 | 마이크로태스크 배칭 | Scheduler, 우선순위(Lanes), Concurrent 렌더링 |
+| 이벤트 | 요소별 대리 리스너 | 루트 하나에 위임, SyntheticEvent |
 
 ### 알려진 한계
 
@@ -166,4 +187,5 @@ mountRoot(App, container)
 | `tests/stateHistory.test.js` | 이동, 미래 기록 삭제, 최대 개수, 불변성 |
 | `tests/phase1Page.test.js` | 기능 테스트: 실제 `index.html`로 Patch, 뒤로/앞으로, 목록 이동, 보안 |
 | `tests/functionComponent.test.js` | mount/update, useState, 배칭, 훅 규칙 위반, 자식 컴포넌트, 최소 patch, 이벤트 핸들러 교체 |
-| `tests/phase2Page.test.js` | 기능 테스트: 카운터, 배칭, 입력 포커스 유지, 할 일 추가/토글/삭제, 렌더링 로그 |
+| `tests/effectAndMemo.test.js` | deps 비교, useEffect 실행 시점·deps·cleanup 순서·unmount·무한 루프 방지, useMemo 캐시, 훅 종류 순서 |
+| `tests/phase2Page.test.js` | 기능 테스트: 카운터, 배칭, 입력 포커스 유지, 할 일 추가/토글/삭제, 문서 제목, localStorage 저장·복원, 타이머 cleanup, useMemo 캐시, 필터 |
