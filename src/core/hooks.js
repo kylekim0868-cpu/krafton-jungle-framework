@@ -112,6 +112,8 @@ export function useEffect(effect, deps) {
 
   // deps 가 바뀌었을 때만 실행 예약 (hook.deps 는 실제로 실행된 뒤에 갱신됨)
   if (depsChanged(hook.deps, deps)) {
+    // 바로 실행하지 않고 예약 장부(pendingEffects)에 넣어둠!
+    // ➔ 실제 브라우저 DOM 패치가 다 끝난 뒤에 안전하게 실행하기 위해!
     component.pendingEffects.push({ hook, effect, deps });
   }
 }
@@ -140,3 +142,11 @@ export function useMemo(factory, deps) {
   component.hooks[index] = { type: 'memo', value, deps };
   return value;
 }
+
+/*
+훅 이름	          hooks배열에 저장하는 것	              실행 시점	                               주된 용도
+
+useState	  { type: 'state', value, setState }	  즉시 값 반환	                    화면을 다시 그리게 하는 동적 데이터
+useMemo	      { type: 'memo', value, deps }	      렌더링 도중 즉시 계산	                비싼 계산 결과 캐싱 (재사용)
+useEffect	  { type: 'effect', deps, cleanup }	  화면 다 그린 뒤             비동기 실행	타이머, API 호출, 이벤트 구독 등 부수 효과
+*/
