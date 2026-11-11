@@ -142,7 +142,7 @@ export class FunctionComponent {
 
 /**
  * 편의 함수: 루트 컴포넌트를 만들고 바로 마운트합니다.
- *   const root = mountRoot(App, document.getElementById('app'));
+ * const root = mountRoot(App, document.getElementById('app'));
  */
 export function mountRoot(renderFn, container, props = {}, options = {}) {
   return new FunctionComponent(renderFn, props, options).mount(container);
