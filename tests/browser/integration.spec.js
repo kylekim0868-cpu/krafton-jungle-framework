@@ -15,6 +15,11 @@ test('KJF-28 / 이름·숫자·동일 값에서 렌더와 Memo·변경 명령을
   await expect(page.locator('#render-count')).toHaveText('1');
   await expect(page.locator('#memo-count')).toHaveText('1');
   await page.locator('#name-input').fill('Jungle');
+  await expect(page.locator('#render-count')).toHaveText('1');
+  await expect(page.locator('#commit-count')).toHaveText('1');
+  await expect(page.locator('#commit-log li')).toHaveCount(1);
+  await expect(page.locator('#effect-log li')).toHaveCount(1);
+  await page.getByRole('button', { name: '이름 적용', exact: true }).click();
   await expect(page.locator('#render-count')).toHaveText('2');
   await expect(page.locator('#memo-count')).toHaveText('1');
   await expect(page.locator('#patch-summary')).toContainText('TEXT 1');
@@ -27,6 +32,12 @@ test('KJF-28 / 이름·숫자·동일 값에서 렌더와 Memo·변경 명령을
   await expect(page.locator('#patch-summary')).toContainText('TEXT 2');
   await expect(page.locator('#mutation-count')).toHaveText('2');
   const entries = await page.locator('#commit-log li').count();
+  const effects = await page.locator('#effect-log li').count();
+  // 같은 이름을 Enter로 다시 제출해도 중복 렌더·로그를 만들지 않는다.
+  await page.locator('#name-input').press('Enter');
+  await expect(page.locator('#render-count')).toHaveText('3');
+  await expect(page.locator('#commit-log li')).toHaveCount(entries);
+  await expect(page.locator('#effect-log li')).toHaveCount(effects);
   await page.locator('#same-value-button').click();
   await expect(page.locator('#render-count')).toHaveText('3');
   await expect(page.locator('#commit-log li')).toHaveCount(entries);

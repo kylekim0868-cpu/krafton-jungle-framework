@@ -48,9 +48,15 @@ export function App({ onEffect = () => {} }) {
 
   return h('article', { 'data-component': 'app' },
     h('h2', {}, '루트 컴포넌트'),
-    h('label', { class: 'name-field' }, '이름',
-      h('input', { id: 'name-input', type: 'text', value: name,
-        onInput: (event) => setName(event.currentTarget.value) })),
+    // 작성 중인 값은 입력 DOM에 두고, 버튼·Enter 제출에서만 State를 확정한다.
+    // 타이핑마다 setter를 호출하지 않아 렌더·Effect 관찰 기록이 쌓이지 않는다.
+    h('form', { class: 'name-form', onSubmit: (event) => {
+      event.preventDefault();
+      setName(event.currentTarget.elements.namedItem('name').value);
+    } },
+      h('label', { class: 'name-field' }, '이름',
+        h('input', { id: 'name-input', name: 'name', type: 'text', value: name })),
+      h('button', { type: 'submit' }, '이름 적용')),
     h('p', { 'data-greeting': '' }, `안녕하세요, ${name || '(빈 값)'}!`),
     h(Counter, { count, doubled, onIncrement: () => setCount((value) => value + 1),
       onSameValue: () => setCount(count) }),

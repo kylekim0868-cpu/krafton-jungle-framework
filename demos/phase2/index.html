@@ -7,6 +7,7 @@
     <link rel="stylesheet" href="../demo.css">
     <style>
       [data-count] { margin: 18px 0; font-size: 42px; font-weight: 750; letter-spacing: -.04em; }
+      .name-form { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: end; gap: 10px; }
       .name-field { display: grid; gap: 8px; color: #536174; }
       .name-field input { width: 100%; min-width: 0; font: inherit; padding: 10px 12px; border: 1px solid #c6cdd9; border-radius: 8px; }
       .effect-log { padding-left: 22px; }
@@ -28,7 +29,7 @@
     <main>
       <p class="eyebrow">MINI REACT / PHASE 02</p>
       <h1>컴포넌트와 Hooks 실험실</h1>
-      <p class="intro">입력과 클릭으로 루트 상태를 바꾸고, 기존 Diff·Patch로 화면을 갱신합니다.<br>이름만 바꿀 때와 숫자를 바꿀 때 렌더·Memo·DOM 관측 결과를 비교해 보세요.</p>
+      <p class="intro">이름을 입력한 뒤 이름 적용 버튼이나 Enter로 반영하고, 숫자는 버튼으로 바꿉니다.<br>이름을 적용할 때와 숫자를 바꿀 때 렌더·Memo·DOM 관측 결과를 비교해 보세요.</p>
 
       <div class="toolbar" role="group" aria-label="루트 컴포넌트 갱신">
         <button id="unmount-button" type="button" disabled aria-describedby="controls-note">컴포넌트 해제</button>
@@ -57,7 +58,7 @@
                 <div><dt>Memo 계산 · 누적</dt><dd id="memo-count">0</dd></div>
                 <div><dt>DOM 관측 · 이번 반영</dt><dd id="mutation-count">0</dd></div>
               </dl>
-              <p class="hint">이름만 바꾸면 Memo 계산 수가 유지됩니다. 같은 숫자를 다시 설정하면 루트 실행도 늘지 않습니다.</p>
+              <p class="hint">이름은 버튼이나 Enter로 적용할 때 기록됩니다. 이름만 적용하면 Memo 계산 수가 유지됩니다. 같은 숫자를 다시 설정하면 루트 실행도 늘지 않습니다.</p>
               <p id="patch-summary" aria-label="최근 변경 명령">아직 반영하지 않았습니다.</p>
               <p class="hint">DOM 관측은 MutationRecord 수입니다. 이벤트 등록·현재 입력값 대입·레이아웃·페인트 횟수는 포함하지 않습니다. 적용 시간은 Diff·Patch 준비와 화면 그리기를 제외합니다.</p>
               <ol class="commit-log" id="commit-log" aria-label="렌더와 변경 명령 기록"></ol>

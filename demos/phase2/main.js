@@ -18,7 +18,7 @@ const component = new FunctionComponent(App, { onEffect: reportEffect }, { onCom
 try {
   component.mount(container);
   unmountButton.disabled = false;
-  status.textContent = 'mount 완료 · 이름 입력과 버튼 클릭이 루트 상태를 갱신합니다.';
+  status.textContent = 'mount 완료 · 이름은 적용 버튼이나 Enter로 반영하고, 숫자는 버튼으로 바꿉니다.';
   document.documentElement.dataset.appState = 'ready';
 } catch (error) {
   status.textContent = `mount 실패 · ${error.message}`;

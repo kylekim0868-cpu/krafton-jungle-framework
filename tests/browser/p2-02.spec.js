@@ -19,6 +19,9 @@ test('P2-02 / 실제 입력·클릭은 상태와 표시를 바꾸고 같은 DOM�
   await expect(page.locator('html')).toHaveAttribute('data-app-state', 'ready');
   const input = page.getByRole('textbox', { name: '이름' });
   await input.fill('Jungle');
+  await expect(page.locator('[data-greeting]')).toHaveText('안녕하세요, 미니 리액트!');
+  await expect(page).toHaveTitle('미니 리액트 · 0');
+  await input.press('Enter');
   await expect(page.locator('[data-greeting]')).toHaveText('안녕하세요, Jungle!');
   await expect(page).toHaveTitle('Jungle · 0');
   await input.evaluate((node) => {
@@ -28,6 +31,7 @@ test('P2-02 / 실제 입력·클릭은 상태와 표시를 바꾸고 같은 DOM�
   });
   await page.keyboard.insertText('!');
   await expect(input).toHaveValue('Jun!gle');
+  await expect(page.locator('[data-greeting]')).toHaveText('안녕하세요, Jungle!');
   expect(await input.evaluate((node) => document.activeElement === node && node.selectionStart === 4
     && node.selectionEnd === 4 && window.p202Refs.input === node)).toBe(true);
   const button = page.getByRole('button', { name: '숫자 +1 · update()' });
@@ -36,6 +40,9 @@ test('P2-02 / 실제 입력·클릭은 상태와 표시를 바꾸고 같은 DOM�
   await expect(page.locator('[data-count]')).toHaveText('2');
   await expect(page.locator('[data-double]')).toHaveText('두 배 값 · 4');
   await expect(input).toHaveValue('Jun!gle');
+  await page.getByRole('button', { name: '이름 적용', exact: true }).click();
+  await expect(page.locator('[data-greeting]')).toHaveText('안녕하세요, Jun!gle!');
+  await expect(page).toHaveTitle('Jun!gle · 2');
   expect(await page.evaluate(() => window.p202Refs.heading === document.querySelector('#component-root h2')
     && window.p202Refs.count === document.querySelector('[data-count]').firstChild)).toBe(true);
   expect(errors).toEqual([]);
